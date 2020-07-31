@@ -18,7 +18,7 @@ loading NNet3 models and having access to the parameters of the model). Modifyin
 custom versions of Kaldi and CLIF. Moreover, if one simply wanted to converting Tensors in GPU to Kaldi CuMatrix
 was not efficient (the general route afaik would be Tensor GPU -> Tensor CPU -> Kaldi Matrix CPU -> Kaldi Matrix GPU).
 
-**Pykaldi2** provides a beta version of LF-MMI training, which anyway uses Pykaldi functions.
+**Pykaldi2** provides a version of LF-MMI training, which uses Pykaldi functions.
 
 ## INSTALLATION
 
@@ -43,8 +43,11 @@ Otherwise, it should be added to ``$LD_LIBRARY_PATH`` as follows
 LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$KALDI_ROOT/src/lib
 ```
 
-Currently there are two functional recipes for the conventional LF-MMI training with 
+Currently there is one functional recipe for the conventional LF-MMI training with 
 pkwrap
 
 - [Minilibrespeech recipe](egs/mini_librespeech/s5/README.md)
-- [Multilingual recipe](egs/multilang/babel_4lang/README.md)
+
+## CITATION
+
+Technical report coming soon!
