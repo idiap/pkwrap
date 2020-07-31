@@ -48,6 +48,6 @@ pkwrap
 
 - [Minilibrespeech recipe](egs/mini_librespeech/s5/README.md)
 
-## CITATION
+## REFERENCES & CITATION
 
 Technical report coming soon!
