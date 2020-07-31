@@ -1,0 +1,6 @@
+%WER 27.16 [ 5470 / 20138, 484 ins, 925 del, 4061 sub ] # 1a
+%WER 26.34 [ 5304 / 20138, 534 ins, 843 del, 3927 sub ] # 1a with lr decay
+%WER 20.20 [ 4068 / 20138, 395 ins, 599 del, 3074 sub ] # 1b for 1 epoch, no frame shift
+
+# parallelizations tests
+%WER 19.36 [ 4009 / 20138, 365 ins, 600 del, 3044 sub ] # 1d, 4 epochs

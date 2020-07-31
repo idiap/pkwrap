@@ -1,0 +1,4 @@
+[cmd]
+train_cmd = queue.pl -l q1d -l io_big -V
+cuda_cmd = queue.pl -l q_short_gpu -V
+decode_cmd = queue.pl -l q1d -l io_big -V
