@@ -11,7 +11,7 @@
 
 
 torch::Tensor KaldiMatrixToTensor(kaldi::Matrix<kaldi::BaseFloat> &mat);
-torch::Tensor KaldiCudaMatrixToTensor(kaldi::CuMatrix<kaldi::BaseFloat>& kmat);
+torch::Tensor KaldiCudaMatrixToTensor(const kaldi::CuMatrix<kaldi::BaseFloat>& kmat);
 torch::Tensor KaldiCudaVectorToTensor(const kaldi::CuVector<kaldi::BaseFloat>& kvec);
 kaldi::CuSubMatrix<kaldi::BaseFloat> TensorToKaldiCuSubMatrix(torch::Tensor &t);
 kaldi::CuSubVector<kaldi::BaseFloat> TensorToKaldiCuSubVector(torch::Tensor &t);
