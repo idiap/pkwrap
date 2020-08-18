@@ -118,3 +118,18 @@ kaldi::Matrix<kaldi::BaseFloat> TensorToKaldiMatrix(torch::Tensor &t) {
         return mat;
     }
 }
+
+void WriteFeatures(std::string wspecifier, std::vector<std::pair<std::string,torch::Tensor> > &feats) {
+    using namespace kaldi;
+    kaldi::BaseFloatMatrixWriter kaldi_writer(wspecifier);
+    for(auto iter=feats.begin(); iter!=feats.end(); iter++) {
+        kaldi::Matrix<kaldi::BaseFloat> mat(iter->second.size(0), iter->second.size(1));
+        for(int r=0; r<mat.NumRows(); r++){
+            auto rowdata = mat.RowData(r);
+            for (int c=0; c<mat.NumCols(); c++){
+                rowdata[c] = (*iter).second[r][c].item<float>();
+            }
+        }
+        kaldi_writer.Write(iter->first, mat);
+    }
+}
