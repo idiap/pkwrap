@@ -14,8 +14,8 @@ from torch.utils import cpp_extension
 import torch
 pytorch_version = torch.__version__
 pytorch_major_ver, pytorch_min_ver = list(map(int, pytorch_version.split('.')[:2]))
-if pytorch_major_ver != 1 or pytorch_min_ver > 5:
-    sys.stderr.write("We support pytorch version until 1.5 only\n")
+if pytorch_major_ver != 1 or pytorch_min_ver > 6:
+    sys.stderr.write("We support pytorch version until 1.6 only\n")
     quit(1)
 
 KALDI_ROOT = os.getenv('KALDI_ROOT')
@@ -62,7 +62,7 @@ AUTHORS = ['Srikanth Madikeri']
 AUTHOR_STR = ','.join(AUTHORS)
 
 LICENSE = 'Apache 2.0'
-VERSION = '0.2.6'
+VERSION = '0.2.7'
 
 setup(name=PACKAGE_NAME,
       version=VERSION,
