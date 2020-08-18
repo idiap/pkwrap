@@ -15,7 +15,7 @@ torch::Tensor KaldiCudaMatrixToTensor(const kaldi::CuMatrix<kaldi::BaseFloat>& k
 torch::Tensor KaldiCudaVectorToTensor(const kaldi::CuVector<kaldi::BaseFloat>& kvec);
 kaldi::CuSubMatrix<kaldi::BaseFloat> TensorToKaldiCuSubMatrix(torch::Tensor &t);
 kaldi::CuSubVector<kaldi::BaseFloat> TensorToKaldiCuSubVector(torch::Tensor &t);
-void TensorToKaldiVector(torch::Tensor &t, kaldi::Vector<kaldi::BaseFloat> &vec) {
+void TensorToKaldiVector(torch::Tensor &t, kaldi::Vector<kaldi::BaseFloat> &vec);
 torch::Tensor ReadKaldiMatrixFile(const std::string &file_name);
 kaldi::Matrix<kaldi::BaseFloat> TensorToKaldiMatrix(torch::Tensor &t);
 #endif
