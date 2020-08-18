@@ -16,20 +16,20 @@ torch::Tensor KaldiMatrixToTensor(kaldi::Matrix<kaldi::BaseFloat> &mat) {
 torch::Tensor KaldiCudaMatrixToTensor(const kaldi::CuMatrix<kaldi::BaseFloat>& kmat) {
     if(kaldi::CuDevice::Instantiate().Enabled()) {
         // we are sure that kmat is in CUDA. otherwise it will segfault
-        kaldi::BaseFloat* data_ptr = kmat.Data();
-        torch::Tensor x = torch::from_blob((void*)data_ptr, 
-                                            {kmat.NumRows(),kmat.NumCols()}, 
-                                            {kmat.Stride(), 1}, 
+        const kaldi::BaseFloat* data_ptr = kmat.Data();
+        torch::Tensor x = torch::from_blob((void*)data_ptr,
+                                            {kmat.NumRows(),kmat.NumCols()},
+                                            {kmat.Stride(), 1},
                                             torch::TensorOptions().dtype(torch::kFloat).device(torch::kCUDA));
         return x;
     }
     else {
         // this is a simpler case. everything is on the host side
-        kaldi::BaseFloat* data_ptr = kmat.Data();
+        const kaldi::BaseFloat* data_ptr = kmat.Data();
         // we trust kaldi to have the same stride as pytorch
-        // TODO: check kaldi's stride type 
-        torch::Tensor x = torch::from_blob((void*)data_ptr, 
-                                            {kmat.NumRows(),kmat.NumCols()}, 
+        // TODO: check kaldi's stride type
+        torch::Tensor x = torch::from_blob((void*)data_ptr,
+                                            {kmat.NumRows(),kmat.NumCols()},
                                             torch::TensorOptions().dtype(torch::kFloat).device(torch::kCPU));
         return x;
     }
