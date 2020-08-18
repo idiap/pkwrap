@@ -16,6 +16,7 @@
 #include "nnet3/am-nnet-simple.h"
 #include "nnet3/nnet-utils.h"
 #include "nnet3/nnet-simple-component.h"
+#include "nnet3/nnet-normalize-component.h"
 #include "cudamatrix/cu-matrix.h"
 
 #endif
