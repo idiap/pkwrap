@@ -13,7 +13,7 @@ torch::Tensor KaldiMatrixToTensor(kaldi::Matrix<kaldi::BaseFloat> &mat) {
 }
 
 
-torch::Tensor KaldiCudaMatrixToTensor(kaldi::CuMatrix<kaldi::BaseFloat>& kmat) {
+torch::Tensor KaldiCudaMatrixToTensor(const kaldi::CuMatrix<kaldi::BaseFloat>& kmat) {
     if(kaldi::CuDevice::Instantiate().Enabled()) {
         // we are sure that kmat is in CUDA. otherwise it will segfault
         kaldi::BaseFloat* data_ptr = kmat.Data();
