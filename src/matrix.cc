@@ -119,6 +119,17 @@ kaldi::Matrix<kaldi::BaseFloat> TensorToKaldiMatrix(torch::Tensor &t) {
     }
 }
 
+void TensorToKaldiVector(torch::Tensor &t, kaldi::Vector<kaldi::BaseFloat> &vec) {
+    int32 s = t.size(0);
+    if(s != vec.Dim()) {
+        std::cout << "ERROR: vec size is not tensor size" << std::endl;
+    }
+    auto t_ = static_cast<float *>(t.storage().data());
+    for(int32 i=0; i<s; i++) {
+        vec(i) = t_[i];
+    }
+}
+
 void WriteFeatures(std::string wspecifier, std::vector<std::pair<std::string,torch::Tensor> > &feats) {
     using namespace kaldi;
     kaldi::BaseFloatMatrixWriter kaldi_writer(wspecifier);
