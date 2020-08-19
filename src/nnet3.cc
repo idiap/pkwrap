@@ -89,10 +89,6 @@ void SaveNNet3Components(std::string model_path,
             }
             torch::Tensor lp_float32 = c_params.second[0];
             torch::Tensor bp_float32 = c_params.second[1];
-            // kaldi::CuSubMatrix<kaldi::BaseFloat> lp_kc = TensorToKaldiCuSubMatrix(lp_float32);
-            // kaldi::CuSubVector<kaldi::BaseFloat> bp_kc = TensorToKaldiCuSubVector(bp_float32);
-
-
             auto nr_lp = lp_float32.size(0), nc_lp = lp_float32.size(1),
                   nr_bp = bp_float32.size(0), nc_bp = bp_float32.size(1);
             torch::Tensor new_params = torch::zeros({nr_lp*nc_lp+nr_bp*nc_bp,1});
