@@ -18,4 +18,5 @@ kaldi::CuSubVector<kaldi::BaseFloat> TensorToKaldiCuSubVector(torch::Tensor &t);
 void TensorToKaldiVector(torch::Tensor &t, kaldi::Vector<kaldi::BaseFloat> &vec);
 torch::Tensor ReadKaldiMatrixFile(const std::string &file_name);
 kaldi::Matrix<kaldi::BaseFloat> TensorToKaldiMatrix(torch::Tensor &t);
+void WriteFeatures(std::string wspecifier, std::vector<std::pair<std::string,torch::Tensor> > &feats);
 #endif
