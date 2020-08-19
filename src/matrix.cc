@@ -30,6 +30,7 @@ torch::Tensor KaldiCudaMatrixToTensor(const kaldi::CuMatrix<kaldi::BaseFloat>& k
         // TODO: check kaldi's stride type
         torch::Tensor x = torch::from_blob((void*)data_ptr,
                                             {kmat.NumRows(),kmat.NumCols()},
+                                            {kmat.Stride(), 1},
                                             torch::TensorOptions().dtype(torch::kFloat).device(torch::kCPU));
         return x;
     }
