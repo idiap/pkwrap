@@ -55,6 +55,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
         .def("Freeze", &kaldi::nnet3::OnlineNaturalGradient::Freeze)
         .def("PreconditionDirections", &kaldi::nnet3::OnlineNaturalGradient::PreconditionDirections);
     nnet3.def("precondition_directions", &precondition_directions);
+    nnet3.def("GetNNet3Components", &GetNNet3Components);
+    nnet3.def("SaveNNet3Components", &SaveNNet3Components);
+    nnet3.def("LoadAffineTransform", &LoadAffineTransform);
 
     auto chain = kaldi_module.def_submodule("chain");
     // classes from Kaldi
