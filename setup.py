@@ -14,8 +14,8 @@ from torch.utils import cpp_extension
 import torch
 pytorch_version = torch.__version__
 pytorch_major_ver, pytorch_min_ver = list(map(int, pytorch_version.split('.')[:2]))
-if pytorch_major_ver != 1 or pytorch_min_ver > 4:
-    sys.stderr.write("We support pytorch version until 1.4 only\n")
+if pytorch_major_ver != 1 or pytorch_min_ver > 6:
+    sys.stderr.write("We support pytorch version until 1.6 only\n")
     quit(1)
 
 KALDI_ROOT = os.getenv('KALDI_ROOT')
@@ -39,7 +39,6 @@ EXTRA_COMPILE_ARGS = {
     'cxx':[ '-I{}/src'.format(KALDI_ROOT),
             '-I{}/tools/openfst/include'.format(KALDI_ROOT),
             '-I{}/include'.format(MKL_ROOT),
-            '-std=c++11',
             '-m64',
             '-msse',
             '-msse2',
