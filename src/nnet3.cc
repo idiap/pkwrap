@@ -31,7 +31,7 @@ std::vector<std::pair<std::string,std::vector<torch::Tensor> > > GetNNet3Compone
     for(int32 i=0; i<nc; i++) {
         auto c = nnet.GetComponent(i);
         auto name = nnet.GetComponentName(i);
-        if(ends_with(name, "affine")) {
+        if(ends_with(name, "affine") || ends_with(name, "linear")) {
             kaldi::nnet3::NaturalGradientAffineComponent* cg = (kaldi::nnet3::NaturalGradientAffineComponent*) c;
             torch::Tensor t_lp = KaldiCudaMatrixToTensor(cg->LinearParams()).clone().detach();
             torch::Tensor t_bp = KaldiCudaVectorToTensor(cg->BiasParams()).clone().detach();
@@ -81,7 +81,7 @@ void SaveNNet3Components(std::string model_path,
         if (name =="prefinal-xent.affine") {
             break;
         }
-        if(ends_with(name, "affine")  ) {
+        if(ends_with(name, "affine") || ends_with(name, "linear")) {
             auto c_params = new_params[j];
             if(c_params.first.compare(name)!=0) {
                 std::cout << "ERROR: expected " << name << " but found " << c_params.first << std::endl;
@@ -97,9 +97,6 @@ void SaveNNet3Components(std::string model_path,
             kaldi::Vector<kaldi::BaseFloat> vec(static_cast<int32>(new_params.size(0)));
             TensorToKaldiVector(new_params, vec);
             kaldi::nnet3::NaturalGradientAffineComponent* cg = (kaldi::nnet3::NaturalGradientAffineComponent*) c;
-            //std::cout << cg->NumParameters() << "  " << vec.Dim() << std::endl;
-            //std::cout << nr_lp << " " << nc_lp << " " << nr_bp << " " << nc_bp << std::endl;
-            //std::cout << cg->InputDim() << " " << cg->OutputDim() << std::endl;
             cg->UnVectorize(vec);
             j+=2;
         }
