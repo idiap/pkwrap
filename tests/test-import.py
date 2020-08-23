@@ -6,4 +6,4 @@ import torch
 import pkwrap
 
 print(dir(pkwrap))
-print("Test Successfull")
+print("Import successfull")
