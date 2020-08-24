@@ -26,6 +26,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     matrix.def("TensorToKaldiMatrix",&TensorToKaldiMatrix);
     matrix.def("ReadKaldiMatrixFile", &ReadKaldiMatrixFile);
     py::class_<kaldi::Matrix<kaldi::BaseFloat> >(matrix, "Matrix");
+    py::class_<kaldi::CuSubMatrix<kaldi::BaseFloat> >(matrix, "CuSubMatrix");
     py::class_<kaldi::SequentialBaseFloatMatrixReader>(matrix, "SequentialBaseFloatMatrixReader")
         .def(py::init<std::string>())
         .def("Next", &kaldi::SequentialBaseFloatMatrixReader::Next)
