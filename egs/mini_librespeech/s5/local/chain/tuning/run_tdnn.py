@@ -16,12 +16,12 @@ import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 def run_job(num_jobs, job_id, dirname, iter_no, model_file, lr, frame_shift, egs_dir,
-    num_archives, num_archives_processed, minibatch_size):
+    num_archives, num_archives_processed, minibatch_size, job_cmd):
     """
         sub a single job and let ThreadPoolExecutor monitor its progress
     """
     log_file = "{}/log/train.{}.{}.log".format(dirname, iter_no, job_id)
-    process_out = subprocess.run(["queue.pl", "-l", "q_gpu", "-V",
+    process_out = subprocess.run([*job_cmd.split(),
                 log_file,
                 model_file,
                 "--dir", dirname,
@@ -61,6 +61,7 @@ if __name__ == '__main__':
     lores_train_data_dir = os.path.join(data, "{}_sp".format(args.train_set))
     train_cmd = cmd['train_cmd']
     cuda_cmd = cmd['cuda_cmd']
+    decode_cmd = cmd['decode_cmd']
 
 
     if stage <= 0:
@@ -149,7 +150,7 @@ if __name__ == '__main__':
         with open(os.path.join(dirname, 'num_pdfs'), 'w') as opf:
             opf.write(num_pdfs)
             opf.close()
-        process_out = subprocess.run(["queue.pl", "-l", "q_gpu", "-V",
+        process_out = subprocess.run([*train_cmd.split(),
             os.path.join(dirname, "log", "init.log"),
             model_file,
             "--mode", "init",
@@ -190,14 +191,14 @@ if __name__ == '__main__':
                         frame_shift = num_archives_processed%args.frame_subsampling_factor
                         p = executor.submit(run_job,num_jobs, job_id, dirname, iter_no,
                                         model_file, lr, frame_shift, egs_dir, num_archives, num_archives_processed,
-                                        "128,64")
+                                        "16,8", cuda_cmd)
                         num_archives_processed += 1
                         job_pool.append(p)
                     for p in as_completed(job_pool):
                         if p.result() != 0:
                             quit(p.result())
             model_list = [os.path.join(dirname,  "{}.{}.pt".format(iter_no, job_id)) for job_id in range(1, num_jobs+1)]
-            process_out = subprocess.run(["queue.pl", "-l", "q_gpu", "-V",
+            process_out = subprocess.run([*cuda_cmd.split(),
                 "{}/log/merge.{}.log".format(dirname, iter_no+1),
                 model_file,
                 "--dir", dirname,
@@ -224,7 +225,7 @@ if __name__ == '__main__':
         graph_dir = args.graph_dir
         graph = "{}/HCLG.fst".format(graph_dir)
         num_jobs = pkwrap.utils.split_data(decode_dir)
-        subprocess.run(["queue.pl", "-l", "q1d", "-l", "io_big", "-V",
+        subprocess.run([*decode_cmd.split(),
             "JOB=1:{}".format(num_jobs),
             os.path.join(out_dir, "log", "decode.JOB.log"),
             model_file,
