@@ -36,6 +36,29 @@ torch::Tensor KaldiCudaMatrixToTensor(const kaldi::CuMatrix<kaldi::BaseFloat>& k
     }
 }
 
+torch::Tensor KaldiCudaMatrixBaseToTensor(const kaldi::CuMatrixBase<kaldi::BaseFloat>& kmat) {
+    if(kaldi::CuDevice::Instantiate().Enabled()) {
+        // we are sure that kmat is in CUDA. otherwise it will segfault
+        const kaldi::BaseFloat* data_ptr = kmat.Data();
+        torch::Tensor x = torch::from_blob((void*)data_ptr,
+                                            {kmat.NumRows(),kmat.NumCols()},
+                                            {kmat.Stride(), 1},
+                                            torch::TensorOptions().dtype(torch::kFloat).device(torch::kCUDA));
+        return x;
+    }
+    else {
+        // this is a simpler case. everything is on the host side
+        const kaldi::BaseFloat* data_ptr = kmat.Data();
+        // we trust kaldi to have the same stride as pytorch
+        // TODO: check kaldi's stride type
+        torch::Tensor x = torch::from_blob((void*)data_ptr,
+                                            {kmat.NumRows(),kmat.NumCols()},
+                                            {kmat.Stride(), 1},
+                                            torch::TensorOptions().dtype(torch::kFloat).device(torch::kCPU));
+        return x;
+    }
+}
+
 torch::Tensor KaldiCudaVectorToTensor(const kaldi::CuVector<kaldi::BaseFloat>& kvec) {
     if(kaldi::CuDevice::Instantiate().Enabled()) {
         // we are sure that kmat is in CUDA. otherwise it will segfault
@@ -106,6 +129,7 @@ kaldi::Matrix<kaldi::BaseFloat> TensorToKaldiMatrix(torch::Tensor &t) {
     if(t.is_contiguous()) {
         kaldi::SubMatrix<kaldi::BaseFloat> submat((kaldi::BaseFloat *)t.data_ptr(), t.size(0), t.size(1), t.size(1));
         // TODO: optimize this. too much copying happening.
+        std::cerr << "In contiguous section" << std::endl;
         kaldi::Matrix<kaldi::BaseFloat> mat(submat);
         return mat;
     } else {
