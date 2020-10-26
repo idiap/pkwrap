@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
+
+// Copyright (c) 2020 Idiap Research Institute, http://www.idiap.ch/
+// Written by Amrutha Prasad <amrutha.prasad@idiap.ch>
+
 import torch
 import pkwrap
 
-# model = '/idiap/temp/aprasad/kaldi/egs/fisher_swbd/s5/exp/chain/tdnn_7k_swbd_6eps_tree4k_lang7k/final.mdl'
 model = '/idiap/temp/aprasad/kaldi/egs/librispeech/s5a/exp/chain_cleaned/tdnn_7k_1a_sp/final.mdl'
 
 model_params = pkwrap.kaldi.nnet3.GetNNet3Components(model)
