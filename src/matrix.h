@@ -1,5 +1,6 @@
 // Copyright (c) 2020 Idiap Research Institute, http://www.idiap.ch/
 // Written by Srikanth Madikeri <srikanth.madikeri@idiap.ch>
+// Written by Amrutha Prasad <amrutha.prasad@idiap.ch>
 
 #ifndef PKWRAP_MATRIX_H_
 #define PKWRAP_MATRIX_H_
@@ -12,6 +13,7 @@
 
 torch::Tensor KaldiMatrixToTensor(kaldi::Matrix<kaldi::BaseFloat> &mat);
 torch::Tensor KaldiCudaMatrixToTensor(const kaldi::CuMatrix<kaldi::BaseFloat>& kmat);
+torch::Tensor KaldiCudaMatrixBaseToTensor(const kaldi::CuMatrixBase<kaldi::BaseFloat>& kmat);
 torch::Tensor KaldiCudaVectorToTensor(const kaldi::CuVector<kaldi::BaseFloat>& kvec);
 kaldi::CuSubMatrix<kaldi::BaseFloat> TensorToKaldiCuSubMatrix(torch::Tensor &t);
 kaldi::CuSubVector<kaldi::BaseFloat> TensorToKaldiCuSubVector(torch::Tensor &t);
