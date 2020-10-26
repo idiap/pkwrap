@@ -2,7 +2,9 @@
 // Written by Srikanth Madikeri <srikanth.madikeri@idiap.ch>
 
 #include "nnet3.h"
-
+#include <typeinfo>
+#include <tuple>
+#include <map>
 // from https://stackoverflow.com/questions/874134/find-out-if-string-ends-with-another-string-in-c
 // Under Creative Commons License
 inline bool ends_with(std::string const & value, std::string const & ending)
@@ -20,27 +22,40 @@ kaldi::BaseFloat precondition_directions(kaldi::nnet3::OnlineNaturalGradient &st
     return scale_;
 }
 
-std::vector<std::pair<std::string,std::vector<torch::Tensor> > > GetNNet3Components(std::string model_path) {
+std::vector<std::tuple<int, std::string,std::vector<torch::Tensor> > > GetNNet3Components(std::string model_path) {
     using namespace kaldi;
     using namespace kaldi::nnet3;
     typedef kaldi::int32 int32;
     kaldi::nnet3::Nnet nnet;
     ReadKaldiObject(model_path, &nnet);
     auto nc = nnet.NumComponents();
-    std::vector<std::pair<std::string, std::vector<torch::Tensor> > > model;
+    std::vector<std::tuple<int, std::string, std::vector<torch::Tensor> > > model;
     for(int32 i=0; i<nc; i++) {
         auto c = nnet.GetComponent(i);
         auto name = nnet.GetComponentName(i);
-        if(ends_with(name, "affine") || ends_with(name, "linear")) {
+        if((name.rfind("tdnnf", 0) == 0) &&  (ends_with(name, "affine") || ends_with(name, "linear")) ){
+            kaldi::nnet3::TdnnComponent* cg = (kaldi::nnet3::TdnnComponent*) c;
+            torch::Tensor t_lp = KaldiCudaMatrixBaseToTensor(cg->LinearParams()).clone().detach();
+            torch::Tensor t_bp = KaldiCudaVectorToTensor(cg->BiasParams()).clone().detach();
+            if (cg->BiasParams().Dim()) {
+                torch::Tensor t_bp = KaldiCudaVectorToTensor(cg->BiasParams()).clone().detach();
+            }
+            std::vector<torch::Tensor> params;
+            params.push_back(t_lp);
+            params.push_back(t_bp);
+            model.push_back(std::make_tuple(i, name, params));
+        }
+        else if(ends_with(name, "affine") ) {
             kaldi::nnet3::NaturalGradientAffineComponent* cg = (kaldi::nnet3::NaturalGradientAffineComponent*) c;
             torch::Tensor t_lp = KaldiCudaMatrixToTensor(cg->LinearParams()).clone().detach();
             torch::Tensor t_bp = KaldiCudaVectorToTensor(cg->BiasParams()).clone().detach();
             std::vector<torch::Tensor> params;
             params.push_back(t_lp);
             params.push_back(t_bp);
-            model.push_back(std::make_pair(name, params));
+            model.push_back(std::make_tuple(i, name, params));
         }
-        else if(ends_with(name, "batchnorm")) {
+        else if (name.find("batchnorm") != std::string::npos) {
+        // else if(ends_with(name, "batchnorm")) {
             kaldi::nnet3::BatchNormComponent* cg = (kaldi::nnet3::BatchNormComponent*) c;
             cg->SetTestMode(true);
             torch::Tensor scale = KaldiCudaVectorToTensor(cg->Scale()).clone().detach();
@@ -48,7 +63,7 @@ std::vector<std::pair<std::string,std::vector<torch::Tensor> > > GetNNet3Compone
             std::vector<torch::Tensor> params;
             params.push_back(scale);
             params.push_back(offset);
-            model.push_back(std::make_pair(name, params));
+            model.push_back(std::make_tuple(i, name, params));
         }
         else if(ends_with(name, "lda")) {
             kaldi::nnet3::FixedAffineComponent* cg = (kaldi::nnet3::FixedAffineComponent*) c;
@@ -57,7 +72,16 @@ std::vector<std::pair<std::string,std::vector<torch::Tensor> > > GetNNet3Compone
             std::vector<torch::Tensor> params;
             params.push_back(t_lp);
             params.push_back(t_bp);
-            model.push_back(std::make_pair(name, params));
+            model.push_back(std::make_tuple(i, name, params));
+        }
+        else if(ends_with(name, "prefinal-l") || ends_with(name, "prefinal-chain.linear")) {
+            kaldi::nnet3::LinearComponent* cg = (kaldi::nnet3::LinearComponent*) c;
+            torch::Tensor t_lp = KaldiCudaMatrixBaseToTensor(cg->Params()).clone().detach();
+            // torch::Tensor t_bp = KaldiCudaVectorToTensor(cg->BiasParams()).clone().detach();
+            std::vector<torch::Tensor> params;
+            params.push_back(t_lp);
+            // params.push_back(t_bp);
+            model.push_back(std::make_tuple(i, name, params));
         }
     }
     return model;
@@ -65,41 +89,87 @@ std::vector<std::pair<std::string,std::vector<torch::Tensor> > > GetNNet3Compone
 
 void SaveNNet3Components(std::string model_path,
                          std::string new_model_path,
-                         std::vector<std::pair<std::string,std::vector<torch::Tensor> > > & new_params) {
+                         std::vector<std::tuple<int, std::string,std::vector<torch::Tensor> > > & new_params) {
     using namespace kaldi;
     using namespace kaldi::nnet3;
     typedef kaldi::int32 int32;
     kaldi::nnet3::Nnet nnet;
     ReadKaldiObject(model_path, &nnet);
     auto nc = nnet.NumComponents();
-    int32 j=1;
-    // TODO: change j accordingly when batchnorm component is also quantized
 
+    std::map<int, int> cmp2new_params;
+    for(int j=0; j<new_params.size(); j++) {
+        int i = std::get<0>(new_params[j]);
+        cmp2new_params[i] = j;
+    }
     for(int32 i=0; i<nc; i++) {
         auto c = nnet.GetComponent(i);
         auto name = nnet.GetComponentName(i);
         if (name =="prefinal-xent.affine") {
             break;
         }
-        if(ends_with(name, "affine") || ends_with(name, "linear")) {
+        // don't change the component if it is not there in components_to_change
+        auto key_value = cmp2new_params.find(i);
+        if(key_value == cmp2new_params.end()) {
+            continue;
+        }
+        int j = key_value->second;
+
+        if((name.rfind("tdnnf", 0) == 0) &&  (ends_with(name, "affine") || ends_with(name, "linear")) ){
             auto c_params = new_params[j];
-            if(c_params.first.compare(name)!=0) {
-                std::cout << "ERROR: expected " << name << " but found " << c_params.first << std::endl;
+            if((std::get<1>(c_params)).compare(name)!=0) {
+                std::cout << "ERROR: expected " << name << " but found " << std::get<1>(c_params) << std::endl;
                 return;
             }
-            torch::Tensor lp_float32 = c_params.second[0];
-            torch::Tensor bp_float32 = c_params.second[1];
+            auto params_array = std::get<2>(c_params);
+            torch::Tensor lp_float32 = params_array[0];
+            torch::Tensor bp_float32 = params_array[1];
             auto nr_lp = lp_float32.size(0), nc_lp = lp_float32.size(1),
                   nr_bp = bp_float32.size(0), nc_bp = bp_float32.size(1);
-            torch::Tensor new_params = torch::zeros({nr_lp*nc_lp+nr_bp*nc_bp,1});
-            new_params.narrow(0, 0, nr_lp*nc_lp).copy_(lp_float32.reshape({nr_lp*nc_lp,1}));
-            new_params.narrow(0, nr_lp*nc_lp, nr_bp).copy_(bp_float32.reshape({nr_bp,1}));
-            kaldi::Vector<kaldi::BaseFloat> vec(static_cast<int32>(new_params.size(0)));
-            TensorToKaldiVector(new_params, vec);
+            torch::Tensor new_params_tensor = torch::zeros({nr_lp*nc_lp+nr_bp*nc_bp,1});
+            new_params_tensor.narrow(0, 0, nr_lp*nc_lp).copy_(lp_float32.reshape({nr_lp*nc_lp,1}));
+            new_params_tensor.narrow(0, nr_lp*nc_lp, nr_bp).copy_(bp_float32.reshape({nr_bp,1}));
+            kaldi::Vector<kaldi::BaseFloat> vec(static_cast<int32>(new_params_tensor.size(0)));
+            TensorToKaldiVector(new_params_tensor, vec);
+            kaldi::nnet3::TdnnComponent* cg = (kaldi::nnet3::TdnnComponent*) c;
+            cg->UnVectorize(vec);
+        }
+        else if(ends_with(name, "prefinal-l") || ends_with(name, "prefinal-chain.linear"))  {
+            auto c_params = new_params[j];
+            if((std::get<1>(c_params)).compare(name)!=0) {
+                std::cout << "ERROR: expected " << name << " but found " << std::get<1>(c_params) << std::endl;
+                return;
+            }
+            auto params_array = std::get<2>(c_params);
+            torch::Tensor lp_float32 = params_array[0];
+            auto nr_lp = lp_float32.size(0), nc_lp = lp_float32.size(1);
+            torch::Tensor new_params_tensor = torch::zeros({nr_lp*nc_lp,1});
+            new_params_tensor.narrow(0, 0, nr_lp*nc_lp).copy_(lp_float32.reshape({nr_lp*nc_lp,1}));
+            kaldi::Vector<kaldi::BaseFloat> vec(static_cast<int32>(new_params_tensor.size(0)));
+            TensorToKaldiVector(new_params_tensor, vec);
+            kaldi::nnet3::LinearComponent* cg = (kaldi::nnet3::LinearComponent*) c;
+            cg->UnVectorize(vec);
+        }
+        else if(ends_with(name, "affine") || ends_with(name, "linear")) {
+            auto c_params = new_params[j];
+            if((std::get<1>(c_params)).compare(name)!=0) {
+                std::cout << "ERROR: expected " << name << " but found " << std::get<1>(c_params) << std::endl;
+                return;
+            }
+            auto params_array = std::get<2>(c_params);
+            torch::Tensor lp_float32 = params_array[0];
+            torch::Tensor bp_float32 = params_array[1];
+            auto nr_lp = lp_float32.size(0), nc_lp = lp_float32.size(1),
+                  nr_bp = bp_float32.size(0), nc_bp = bp_float32.size(1);
+            torch::Tensor new_params_tensor = torch::zeros({nr_lp*nc_lp+nr_bp*nc_bp,1});
+            new_params_tensor.narrow(0, 0, nr_lp*nc_lp).copy_(lp_float32.reshape({nr_lp*nc_lp,1}));
+            new_params_tensor.narrow(0, nr_lp*nc_lp, nr_bp).copy_(bp_float32.reshape({nr_bp,1}));
+            kaldi::Vector<kaldi::BaseFloat> vec(static_cast<int32>(new_params_tensor.size(0)));
+            TensorToKaldiVector(new_params_tensor, vec);
             kaldi::nnet3::NaturalGradientAffineComponent* cg = (kaldi::nnet3::NaturalGradientAffineComponent*) c;
             cg->UnVectorize(vec);
-            j+=2;
         }
+        // else if()
     }
     WriteKaldiObject(nnet, new_model_path, true);
     std::cout <<"Succesfully wrote model!" << std::endl;
@@ -113,3 +183,17 @@ torch::Tensor LoadAffineTransform(std::string matrix_path) {
     ReadKaldiObject(matrix_path, &mat);
     return KaldiMatrixToTensor(mat);
 }
+
+
+/*
+ *  
+ *
+ *    model_params = pkwrap.kaldi.nnet3.GetNNet3Components(model_path)
+ *    params = {name: param for index, name, param in model_params}
+ *    self.param_indices = {name: index for index, name, param in model_params}
+ *
+ *    param_indices = nnet.param_indices
+ *    quantized_params = nnet.quantized_params
+ *    q_params = [(param_indices[name], name, param) for name, param in quantized_params.items()]
+      pkwrap.kaldi.nnet3.SaveNNet3Components(model_file, quantizedModel, q_params)
+ */
