@@ -1,5 +1,6 @@
 // Copyright (c) 2020 Idiap Research Institute, http://www.idiap.ch/
 // Written by Srikanth Madikeri <srikanth.madikeri@idiap.ch>
+// Written by Amrutha Prasad <amrutha.prasad@idiap.ch>
 
 #ifndef PKWRAP_NNET3_H_
 #define PKWRAP_NNET3_H_
