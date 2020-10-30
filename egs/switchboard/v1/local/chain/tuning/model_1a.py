@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright (c) 2020 Idiap Research Institute, http://www.idiap.ch/
+#  Written by Srikanth Madikeri <srikanth.madikeri@idiap.ch>
 
 """
     This models is like "*7k.sh" in kaldi recipe for SWBD but without
