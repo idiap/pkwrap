@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright (c) 2020 Idiap Research Institute, http://www.idiap.ch/
+#  Written by Srikanth Madikeri <srikanth.madikeri@idiap.ch>
+#             Juan Pablo Zuluaga <juan-pablo.zuluaga@idiap.ch>
 
 description = """
   This script trains and tests chain models.
