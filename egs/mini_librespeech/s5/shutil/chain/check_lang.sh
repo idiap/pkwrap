@@ -19,7 +19,8 @@ if [ -d $lang ]; then
       exit 1;
     fi
 else
-    cp -r $old_lang $lang
+    # put an extra / to make sure soft links are copied too
+    cp -r $old_lang/ $lang
     silphonelist=$(cat $lang/phones/silence.csl) || exit 1;
     nonsilphonelist=$(cat $lang/phones/nonsilence.csl) || exit 1;
     # Use our special topology... note that later on may have to tune this
