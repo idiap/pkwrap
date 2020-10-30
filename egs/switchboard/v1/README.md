@@ -12,6 +12,6 @@ local/chain/train.py --config configs/default
 ## Results with tri-gram LM
 
 | System | config | SWBD | CALLHM | Average|
-| --------- | -------- | ---------- |
+| --------- | -------- | ---------- |---------- |---------- |
 | TDNN | ``default`` | 13.6 | 26.4 | 20.0 |
 | + i-vectors | ``tdnn_kaldi_ivector`` | 12.0 | 23.0 | 17.5 |
