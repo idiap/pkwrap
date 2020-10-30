@@ -33,6 +33,10 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
         .def("Done", &kaldi::SequentialBaseFloatMatrixReader::Done)
         .def("Key", &kaldi::SequentialBaseFloatMatrixReader::Key)
         .def("Value", &kaldi::SequentialBaseFloatMatrixReader::Value);
+    py::class_<kaldi::RandomAccessBaseFloatMatrixReader>(matrix, "RandomAccessBaseFloatMatrixReader")
+        .def(py::init<std::string>())
+        .def("HasKey", &kaldi::RandomAccessBaseFloatMatrixReader::HasKey)
+        .def("Value", &kaldi::RandomAccessBaseFloatMatrixReader::Value);
     py::class_<kaldi::BaseFloatMatrixWriter>(matrix, "BaseFloatMatrixWriter")
         .def(py::init<std::string>())
         .def("Write", &kaldi::BaseFloatMatrixWriter::Write)
