@@ -43,11 +43,22 @@ Otherwise, it should be added to ``$LD_LIBRARY_PATH`` as follows
 LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$KALDI_ROOT/src/lib
 ```
 
-Currently there is one functional recipe for the conventional LF-MMI training with 
+Currently there are two recipes for the conventional LF-MMI training with 
 pkwrap
 
 - [Minilibrespeech recipe](egs/mini_librespeech/s5/README.md)
+- [Switchboard](egs/switchboard/v1/README.md)
 
 ## REFERENCES & CITATION
 
-Technical report coming soon!
+The technical report is now available [here](https://arxiv.org/abs/2010.03466). The report can 
+be cited as in the following bibtex example:
+
+```
+@article{madikeri2020pkwrap,
+  title={Pkwrap: a PyTorch Package for LF-MMI Training of Acoustic Models},
+  author={Madikeri, Srikanth and Tong, Sibo and Zuluaga-Gomez, Juan and Vyas, Apoorv and Motlicek, Petr and Bourlard, Herv{\'e}},
+  journal={arXiv preprint arXiv:2010.03466},
+  year={2020}
+}
+```
