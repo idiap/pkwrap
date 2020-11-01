@@ -6,7 +6,7 @@
 import torch
 import pkwrap
 
-model = '/idiap/temp/aprasad/kaldi/egs/librispeech/s5a/exp/chain_cleaned/tdnn_7k_1a_sp/final.mdl'
+model = 'exp/chain_cleaned/tdnn_7k_1a_sp/final.mdl'
 
 model_params = pkwrap.kaldi.nnet3.GetNNet3Components(model)
 # params = {name: param for index, name, param in model_params}
