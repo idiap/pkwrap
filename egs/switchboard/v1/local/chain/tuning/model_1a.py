@@ -279,6 +279,8 @@ if __name__ == '__main__':
                 torch.save(model0.state_dict(), args.new_model)
 
         elif args.mode == 'decode':
+            context_file_name = os.path.join(args.dir, 'context')
+            context = pkwrap.script_utils.read_single_param_file(context_file_name)
             with torch.no_grad():
                 model = Net(num_outputs, feat_dim)
                 base_model = args.base_model
@@ -291,7 +293,7 @@ if __name__ == '__main__':
                 writer_spec = "ark,t:{}".format(args.decode_output)
                 writer = pkwrap.script_utils.feat_writer(writer_spec)
                 for key, feats in pkwrap.script_utils.feat_reader_gen(args.decode_feats):
-                    feats_with_context = pkwrap.matrix.add_context(feats, 13, 13).unsqueeze(0)
+                    feats_with_context = pkwrap.matrix.add_context(feats, context, context).unsqueeze(0)
                     post, _ = model(feats_with_context)
                     post = post.squeeze(0)
                     writer.Write(key, pkwrap.kaldi.matrix.TensorToKaldiMatrix(post))
