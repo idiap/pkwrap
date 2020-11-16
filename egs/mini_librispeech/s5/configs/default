@@ -15,8 +15,6 @@ lat_dir = exp/tri3b_train_clean_5_sp_lats
 model_file = local/chain/tuning/tdnnf.py
 lang = data/lang
 lang_chain = data/lang_chain
-# trained from kaldi
-graph_dir = exp/chain/tdnnf8l/graph_sw1_tg
 
 # train params
 num_epochs = 6
