@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright 2020 	Srikanth Madikeri (Idiap Research Institute)
+
 set -e
 
 if [ $# -ne 1 ]; then
