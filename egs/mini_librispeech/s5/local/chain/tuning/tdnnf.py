@@ -11,11 +11,8 @@ import os
 import sys
 
 import torch
-import torch.optim as optim
 import torch.nn.functional as F
 import torch.nn as nn
-import torch.nn.init as init
-from torch.nn.utils import clip_grad_value_
 import pkwrap
 from pkwrap.nn import TDNNFBatchNorm, NaturalAffineTransform
 from pkwrap.chain import ChainModel
