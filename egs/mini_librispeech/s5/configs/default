@@ -3,7 +3,6 @@ cpu_cmd = queue.pl -l q1d -V -P parole
 cuda_cmd = queue.pl -l q_gpu -V -P parole
 
 [exp]
-# 8 layer tdnnf model. NOTE: exp/chain${chain_affix} will be prepended automatically
 dirname = tdnnf
 train_set = data/train_clean_5_sp_hires
 lores_train_set = data/train_clean_5_sp
