@@ -336,7 +336,7 @@ def train():
                 quit(process_out.returncode)
         src = os.path.join(dirname, "{}.pt".format(num_iters))
         dst = os.path.join(dirname, "final.pt")
-        subprocess.run(['ln', '-r', '-s', src, dst])
+        pkwrap.script_utils.run(['ln', '-r', '-s', src, dst])
 
     graph_dir = ""
     decode_params = cfg_parse[args.test_config]
