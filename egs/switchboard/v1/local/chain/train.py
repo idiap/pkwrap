@@ -184,7 +184,7 @@ def train():
 #   create den.fst
     if stage <= 3:
         logging.info("Creating den.fst")
-        process_out = subprocess.run([
+        pkwrap.script_utils.run([
             "shutil/chain/make_den_fst.sh",
             "--cmd", f"{cpu_cmd}",
             tree_dir, 
@@ -222,7 +222,7 @@ def train():
             quit(process_out.returncode)
         with open(os.path.join(dirname, 'context')) as ipf:
             context = int(ipf.readline())
-        process_out = subprocess.run([
+        pkwrap.script_utils.run([
             "steps/chain/get_egs.sh",
             "--cmd", cuda_cmd,
             "--cmvn-opts", "--norm-means=false --norm-vars=false",
@@ -236,8 +236,6 @@ def train():
             "--online-ivector-dir", trainer_opts.online_ivector_dir,
             train_set, dirname, lat_dir, egs_dir
         ])
-        if process_out.returncode != 0:
-            quit(process_out.returncode)
     if context is None:
         with open(os.path.join(dirname, 'context')) as ipf:
             context = int(ipf.readline())
@@ -286,8 +284,7 @@ def train():
                 num_archives_processed += num_jobs
                 continue
             assert num_jobs>0
-            sys.stderr.write("Running iter={} of {}\n".format(iter_no, num_iters))
-            sys.stderr.flush()        
+            logging.info("Running iter={} of {}\n".format(iter_no, num_iters))
             lr = pkwrap.script_utils.get_learning_rate(
                 iter_no, 
                 num_jobs, 
