@@ -13,7 +13,6 @@ import pkwrap
 from pkwrap.nn import TDNNFBatchNorm, NaturalAffineTransform
 from pkwrap.chain import ChainModel
 
-import numpy as np
 
 class Net(nn.Module):
     def __init__(self, feat_dim, output_dim):
