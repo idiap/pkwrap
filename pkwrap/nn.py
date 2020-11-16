@@ -208,7 +208,6 @@ class OrthonormalLinear(NaturalAffineTransform):
     def forward(self, input):
         """Forward pass"""
         # do it before forward pass
-        print(self.feat_dim, self.out_dim)
         if self.training:
            with torch.no_grad():
                constrain_orthonormal(self.weight, self.scale)
