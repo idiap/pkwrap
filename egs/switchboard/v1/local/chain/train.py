@@ -410,7 +410,7 @@ def train():
                     os.path.join(out_dir, '../final.mdl'),
             ])
         pkwrap.script_utils.run([
-            "local/score_sclite.sh",
+            "local/score.sh",
             "--cmd", cpu_cmd,
             data_dir,
             graph_dir,
