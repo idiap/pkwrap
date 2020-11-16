@@ -334,7 +334,7 @@ def train():
                     subprocess.run(["rm", mdl])
             if process_out.returncode != 0:
                 quit(process_out.returncode)
-        src = os.path.join(dirname, "{}.pt".format(num_iters-1))
+        src = os.path.join(dirname, "{}.pt".format(num_iters))
         dst = os.path.join(dirname, "final.pt")
         subprocess.run(['ln', '-r', '-s', src, dst])
 
