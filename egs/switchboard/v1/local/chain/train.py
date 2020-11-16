@@ -110,7 +110,6 @@ def train():
     lang_chain = exp_cfg["lang_chain"] if "lang_chain" in exp_cfg else "lang_chain"
 
     l2_regularize = args.l2_regularize
-    graph_dir = exp_cfg["graph_dir"]
     
     model_opts = pkwrap.trainer.ModelOpts().load_from_config(exp_cfg)
     frame_subsampling_factor = model_opts.frame_subsampling_factor
@@ -339,8 +338,26 @@ def train():
         dst = os.path.join(dirname, "final.pt")
         subprocess.run(['ln', '-r', '-s', src, dst])
 
+    graph_dir = ""
+    decode_params = cfg_parse[args.test_config]
+    if "graph_dir" in exp_cfg:
+        graph_dir = exp_cfg["graph_dir"]
+    if "graph_dir" in decode_params:
+        graph_dir = decode_params["graph_dir"]
+    if not graph_dir:
+        graph_dir = os.path.join(dirname, 'graph')
     if stage <= 7:
-        decode_params = cfg_parse[args.test_config]
+        if not os.path.isfile(os.path.join(graph_dir, 'HCLG.fst')):
+            logging.info("Making graph with {}".format(exp_cfg["lang"]))
+            pkwrap.script_utils.run([
+                'utils/mkgraph.sh',
+                '--self-loop-scale', '1.0',
+                exp_cfg["lang"],
+                tree_dir,
+                graph_dir
+            ])
+
+    if stage <= 8:
         final_iter = num_iters-1
         data_dir = decode_params["test_set"]
         data_name = os.path.basename(data_dir)
@@ -348,9 +365,6 @@ def train():
         decode_affix = decode_params["suffix"] if "suffix" in decode_params else ""
         decode_suff= "_iter{}{}".format(decode_iter, decode_affix)
         out_dir = os.path.join(dirname, f"decode_{data_name}{decode_suff}")
-        graph_dir = exp_cfg["graph_dir"]
-        if "graph_dir" in decode_params:
-            graph_dir = decode_params["graph_dir"]
         graph = "{}/HCLG.fst".format(graph_dir)
         if "num_jobs" in decode_params:
             num_jobs = pkwrap.utils.split_data(
