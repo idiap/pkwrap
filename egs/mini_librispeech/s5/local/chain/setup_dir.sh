@@ -4,7 +4,7 @@ set -e
 if [ $# -ne 1 ]; then
     echo "Usage: $0 kaldi-egs-dir"
     echo "$0: This script sets up data dirs that have been prepared with Kaldi."
-    echo "The Kaldi folder would be something like $KALDI_ROOT/egs/swbd/s5c/, that"
+    echo "The Kaldi folder would be something like $KALDI_ROOT/egs/mini_librispeech/s5c/, that"
     echo "contains data/, exp/ folders."
     exit 1
 fi
