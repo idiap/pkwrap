@@ -13,7 +13,7 @@ tree_size = 3500
 tree_context_opts = "--context-width=2 --central-position=1"
 lat_dir = exp/tri3b_train_clean_5_sp_lats
 model_file = local/chain/tuning/tdnnf.py
-lang = data/lang
+lang = data/lang_test_tgsmall
 lang_chain = data/lang_chain
 
 # train params
