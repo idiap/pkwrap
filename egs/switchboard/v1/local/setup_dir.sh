@@ -14,6 +14,8 @@ kaldi_folder=$1
 
 link_if_exists() {
     # create only if source exists and dest doesn't
+    src=$1
+    dest=$2
     if [ -e $src -a ! -e $dest ]; then
         ln -r -s $src $dest
     # Give proper message

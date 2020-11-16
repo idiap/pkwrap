@@ -13,6 +13,8 @@ kaldi_folder=$1
 
 link_if_exists() {
     # create only if source exists and dest doesn't
+    src=$1
+    dest=$2
     if [ -e $src -a ! -e $dest ]; then
         ln -r -s $src $dest
     # Give proper message
@@ -22,6 +24,11 @@ link_if_exists() {
         echo "$0: $dest exists. Skipping ..."
     fi
 }
+
+if [ ! -e utils  -o ! -e steps ]; then
+    echo "$0: utils/ does not exists. Run make_links.sh before running this folder"
+    exit 1
+fi
 
 echo "$0: Copying data folders"
 for data_name in train_clean_5  train_clean_5_sp train_clean_5_sp_hires \
@@ -35,6 +42,6 @@ for data_name in train_clean_5  train_clean_5_sp train_clean_5_sp_hires \
 done
 
 echo "$0: Linking lang folders"
-for lang_name in lang lang_chain lang_nosp_test_tglarge  lang_nosp_test_tgmed  lang_nosp_test_tgsmall  lang_test_tglarge  lang_test_tgmed  lang_test_tgsmall; do
+for lang_name in lang lang_chain lang_nosp_test_tglarge lang_nosp_test_tgmed lang_nosp_test_tgsmall lang_test_tglarge lang_test_tgmed lang_test_tgsmall; do
     link_if_exists $kaldi_folder/data/$lang_name data/$lang_name
 done
