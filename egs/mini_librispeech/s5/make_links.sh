@@ -10,3 +10,4 @@ else
 fi
 
 ln -s $KALDI_ROOT/egs/wsj/s5/{utils,steps} .
+ln -r -s $KALDI_ROOT/egs/wsj/s5/local/score.sh local/score.sh
