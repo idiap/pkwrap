@@ -1,0 +1,32 @@
+[cmd]
+cpu_cmd = queue.pl -l q1d -V -P parole
+cuda_cmd = queue.pl -l q_gpu -V -P parole
+
+[exp]
+# 8 layer tdnnf model. NOTE: exp/chain${chain_affix} will be prepended automatically
+dirname = tdnnf
+train_set = data/train_clean_5_sp_hires
+lores_train_set = data/train_clean_5_sp
+gmm_dir = exp/tri3b
+ali_dir = exp/tri3b_ali_train_clean_5_sp
+tree_dir = exp/chain/tree_sp
+tree_size = 3500
+tree_context_opts = "--context-width=2 --central-position=1"
+lat_dir = exp/tri3b_train_clean_5_sp_lats
+model_file = local/chain/tuning/tdnnf.py
+lang = data/lang
+lang_chain = data/lang_chain
+# trained from kaldi
+graph_dir = exp/chain/tdnnf8l/graph_sw1_tg
+
+# train params
+num_epochs = 6
+num_jobs_initial = 2
+num_jobs_final = 6
+lr_initial = 0.001
+lr_final = 0.0001
+diagnostics_interval = 10
+
+[test]
+test_set = data/dev_clean_2_hires
+suffix = 
