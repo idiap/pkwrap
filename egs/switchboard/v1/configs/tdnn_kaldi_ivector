@@ -1,6 +1,6 @@
 [cmd]
-cpu_cmd = queue.pl -l q1d -l io_big -V -P parole
-cuda_cmd = queue.pl -l q_gpu -V -P parole
+cpu_cmd = queue.pl -l q1d -l io_big -V
+cuda_cmd = queue.pl -l q_gpu -V
 
 [exp]
 # 8 layer tdnnf model. NOTE: exp/chain${chain_affix} will be prepended automatically
