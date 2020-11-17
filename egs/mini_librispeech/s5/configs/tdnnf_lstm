@@ -1,10 +1,8 @@
 [cmd]
-# CHANGE these two lines before committing
 cpu_cmd = queue.pl -l q1d -V
 cuda_cmd = queue.pl -l q_gpu -V
 
 [exp]
-# CHANGE this line before committing
 dirname = tdnnf_lstm
 train_set = data/train_clean_5_sp_hires
 lores_train_set = data/train_clean_5_sp
@@ -25,9 +23,6 @@ num_jobs_final = 6
 lr_initial = 0.001
 lr_final = 0.0001
 diagnostics_interval = 5
-# DELETE the 2 lines before committing
-graph_dir = exp/chain/tdnnf/graph_tgsmall
-egs_dir = exp/chain/tdnnf/egs
 
 [test]
 test_set = data/dev_clean_2_hires
