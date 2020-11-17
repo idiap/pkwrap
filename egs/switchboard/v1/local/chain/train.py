@@ -303,7 +303,7 @@ def train():
                 trainer_opts.lr_final,
                 schedule_type='exponential'
             )
-            logging.info("lr={}\n".format(lr))
+            logging.info("lr={}".format(lr))
             diagnostic_job_pool = None
             if iter_no % trainer_opts.diagnostics_interval == 0:
                 diagnostic_job_pool = submit_diagnostic_jobs(dirname, model_file, iter_no, egs_dir, cuda_cmd)
@@ -322,27 +322,28 @@ def train():
                     for p in as_completed(job_pool):
                         if p.result() != 0:
                             quit(p.result())
-            model_list = [os.path.join(dirname,  "{}.{}.pt".format(iter_no, job_id)) for job_id in range(1, num_jobs+1)]
-            process_out = subprocess.run([
-                *cuda_cmd.split(),
-                "{}/log/merge.{}.log".format(dirname, iter_no+1),
-                model_file,
-                "--dir", dirname,
-                "--mode", "merge",
-                "--new-model", os.path.join(dirname, "{}.pt".format(iter_no+1)),
-                ",".join(model_list)])
-            if process_out.returncode != 0:
-                quit(process_out.returncode)
-            else:
-                # if iter is greater than 20, we start append the previous models
-                # to delete them: 
-                if iter_no >= 20:
-                    model_list.append(os.path.join(dirname,
-                        "{}.pt".format(iter_no-10)))
+            if num_jobs>1:
+                model_list = [os.path.join(dirname,  "{}.{}.pt".format(iter_no, job_id)) for job_id in range(1, num_jobs+1)]
+                process_out = subprocess.run([
+                    *cuda_cmd.split(),
+                    "{}/log/merge.{}.log".format(dirname, iter_no+1),
+                    model_file,
+                    "--dir", dirname,
+                    "--mode", "merge",
+                    "--new-model", os.path.join(dirname, "{}.pt".format(iter_no+1)),
+                    ",".join(model_list)])
                 for mdl in model_list:
-                    subprocess.run(["rm", mdl])
-            if process_out.returncode != 0:
-                quit(process_out.returncode)
+                    pkwrap.script_utils.run(["rm", mdl])
+            else:
+                pkwrap.script_utils.run([
+                    "mv",
+                    os.path.join(dirname, "{}.1.pt".format(iter_no)),
+                    os.path.join(dirname, "{}.pt".format(iter_no+1)),
+                ])
+            # remove old model
+            if iter_no >= 20:
+                mdl = os.path.join(dirname, "{}.pt".format(iter_no-10))
+                pkwrap.script_utils.run(["rm", mdl])
         src = os.path.join(dirname, "{}.pt".format(num_iters))
         dst = os.path.join(dirname, "final.pt")
         pkwrap.script_utils.run(['ln', '-r', '-s', src, dst])
@@ -396,7 +397,7 @@ def train():
             "--dir", dirname,
             "--mode", "decode",
             *ivector_opts,
-            "--decode-feat", "scp:{}/split{}/JOB/feats.scp".format(data_dir, num_jobs),
+            "--decode-feats", "scp:{}/split{}/JOB/feats.scp".format(data_dir, num_jobs),
             os.path.join(dirname, "{}.pt".format(decode_iter)),
             "|",
             "shutil/decode/latgen-faster-mapped.sh",
