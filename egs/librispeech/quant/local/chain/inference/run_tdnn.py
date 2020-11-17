@@ -10,14 +10,11 @@ usage="""
 """
 
 import sys
-
 import os
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 nn_path = os.path.join(dir_path, '../nn')
 sys.path.insert(0, nn_path)
-# utils_path = dir_path + '/../../model_classes'
-# sys.path.insert(0, utils_path)
 
 import torch
 import torch.nn as nn
