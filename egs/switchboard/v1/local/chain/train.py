@@ -8,14 +8,14 @@ description = """
   It takes a config file, if none is provided the script will look at configs/default.
 """
 
+import os
+import sys
+import shutil
 import torch
 import pkwrap
 import argparse
 import subprocess
 import configparser
-import os
-import sys
-import shutil
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
 logging.basicConfig(level=logging.DEBUG, format='pkwrap %(levelname)s: %(message)s')
@@ -99,6 +99,8 @@ def train():
     chain_affix = exp_cfg["chain_affix"] if "chain_affix" in exp_cfg else ""
     chain_dir = os.path.join(exp, f"chain{chain_affix}")
     dirname = os.path.join(chain_dir, exp_cfg["dirname"])
+    if not os.path.exists(dirname):
+        os.makedirs(dirname)
     egs_dir = os.path.join(dirname, "egs")
     gmm_dir = exp_cfg["gmm_dir"]
     ali_dir = exp_cfg["ali_dir"]
@@ -208,7 +210,7 @@ def train():
         ])
 #   create or copy the egs folder
     context = None
-    if stage <= 4:
+    if stage <= 4 and not ("egs_dir" in exp_cfg and exp_cfg["egs_dir"]):
         logging.info("Creating egs")
         # first check the context
         process_out = subprocess.run([
@@ -235,6 +237,13 @@ def train():
             "--online-ivector-dir", trainer_opts.online_ivector_dir,
             train_set, dirname, lat_dir, egs_dir
         ])
+    elif "egs_dir" in exp_cfg:
+        egs_dir = exp_cfg["egs_dir"]
+        if not os.path.exists(os.path.join(dirname, 'context')):
+            shutil.copy(
+                os.path.join(egs_dir, 'info', 'left_context'), 
+                os.path.join(dirname, 'context')
+            )
     if context is None:
         with open(os.path.join(dirname, 'context')) as ipf:
             context = int(ipf.readline())
@@ -283,7 +292,7 @@ def train():
                 num_archives_processed += num_jobs
                 continue
             assert num_jobs>0
-            logging.info("Running iter={} of {}\n".format(iter_no, num_iters))
+            logging.info("Running iter={} of {}".format(iter_no, num_iters))
             lr = pkwrap.script_utils.get_learning_rate(
                 iter_no, 
                 num_jobs, 
