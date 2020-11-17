@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# %WER 18.28 [ 3682 / 20138, 338 ins, 645 del, 2699 sub ]
+# Copyright 2020    Srikant Madikeri (Idiap Research Institute)
 
 """
     simple TDNNF implementation, but no randomization used. the updates

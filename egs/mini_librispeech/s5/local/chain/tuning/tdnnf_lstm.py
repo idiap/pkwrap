@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright 2020    Srikant Madikeri (Idiap Research Institute)
 
 """
     simple TDNNF-LSTM implementation
