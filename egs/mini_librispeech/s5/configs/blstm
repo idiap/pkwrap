@@ -1,0 +1,35 @@
+[cmd]
+cpu_cmd = queue.pl -l q1d -V
+cuda_cmd = queue.pl -l q_gpu -V
+
+[exp]
+# CHANGE this line before committing
+dirname = blstm
+train_set = data/train_clean_5_sp_hires
+lores_train_set = data/train_clean_5_sp
+gmm_dir = exp/tri3b
+ali_dir = exp/tri3b_ali_train_clean_5_sp
+tree_dir = exp/chain/tree_sp
+tree_size = 3500
+tree_context_opts = "--context-width=2 --central-position=1"
+lat_dir = exp/tri3b_train_clean_5_sp_lats
+model_file = local/chain/tuning/blstm.py
+lang = data/lang_test_tgsmall
+lang_chain = data/lang_chain
+
+# train params
+num_epochs = 6
+# BLSTM layers do not use NG-SGD.
+num_jobs_initial = 1
+num_jobs_final = 1
+lr_initial = 0.001
+lr_final = 0.0001
+diagnostics_interval = 5
+# DELETE the 2 lines before committing
+graph_dir = exp/chain/tdnnf/graph_tgsmall
+
+[test]
+test_set = data/dev_clean_2_hires
+suffix = 
+
+
