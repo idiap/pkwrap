@@ -81,10 +81,8 @@ class TDNN(nn.Module):
             self.linear_params_ = nn.Parameter(params[0], requires_grad=False)
             self.bias_ = None
         else:
-            self.bias_ = nn.Parameter(torch.Tensor(1,self.output_features))
-            self.linear_params_ = torch.ones(torch.Tensor(self.output_features, self.input_features))
-            self.bias_.zero_()
-            self.linear_params_.zero_()
+            self.bias_ = nn.Parameter(torch.zeros(self.output_features, 1))
+            self.linear_params_ = nn.Parameter(torch.ones(self.output_features, self.input_features * lcontext))
        
 
     def forward(self, input, use_int8=True, input_min=None, input_max=None):
