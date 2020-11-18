@@ -52,17 +52,6 @@ def calcScaleZeroPointInt8(min_val, max_val,num_bits=8):
     zero_point_next = int(zero_point_next)
     return scale_next, zero_point_next
 
-def quantize_tensor_int8(tensor, scale, zp):
-    t = tensor/scale + zp
-    t = t.round()
-    t = t.to(torch.int8)
-    return (t, scale, zp)
-
-def quantize_tensor_uint8(tensor, scale, zp):
-    t = tensor/scale + zp
-    t = t.round()
-    t = t.to(torch.uint8)
-    return (t, scale, zp)
 
 # TDNN implementation similar to the one in Kaldi where there is one big weight matrix
 class TDNN(nn.Module):
@@ -81,16 +70,15 @@ class TDNN(nn.Module):
             self.linear_params_ = nn.Parameter(params[0], requires_grad=False)
             self.bias_ = nn.Parameter(params[1].T, requires_grad=False)
         else:
-            self.bias_ = nn.Parameter(torch.Tensor(1,self.output_features))
-            self.linear_params_ = torch.ones(self.Tensor(self.output_features, self.input_features))
-            self.bias_.zero_()
-            self.linear_params_.zero_()
+            self.bias_ = nn.Parameter(torch.zeros(self.output_features, 1))
+            self.linear_params_ = nn.Parameter(torch.ones(self.output_features, self.input_features * lcontext))
+            
         self.qfn = torch.nn.quantized.QFunctional()
 
         self.quantized_linear = nn.quantized.Linear(self.input_features, self.output_features)
         self.quantized_relu = nn.quantized.ReLU()
 
-    def forward(self, input, use_int8=False, input_scale=None, input_zpt=None):
+    def forward(self, input, use_int8=False):
         mb, N, D = input.shape
         l = self.context.shape[0]
         expected_N = (N-l+1)
@@ -108,8 +96,7 @@ class TDNN(nn.Module):
         scale, zero_point = calcScaleZeroPointInt8(self.linear_params_.data.min(), self.linear_params_.data.max())
         self.qweight = torch.quantize_per_tensor(self.linear_params_.data, scale, zero_point, torch.qint8)
 
-        qweight_int8 = quantize_tensor_int8(self.linear_params_, scale, zero_point)
-        dequant_weight = (qweight_int8[0].float() - zero_point) * scale
+        dequant_weight = torch.dequantize(self.qweight)
 
         if use_int8:
             input_scale, input_zpt = calcScaleZeroPointInt8(input.data.min(), input.data.max())
