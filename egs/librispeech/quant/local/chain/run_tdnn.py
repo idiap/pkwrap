@@ -31,7 +31,7 @@ def run_job(num_jobs, job_id, dirname, iter_no, model_file, lr, frame_shift, egs
                 "--egs", "ark:{}/cegs.{}.ark".format(egs_dir, num_archives_processed%num_archives+1),
                 "--l2-regularize-factor", str(1.0/num_jobs),
                 "--minibatch-size", "128,64",
-                "--new-model", os.path.join(dirname),
+                "--new-model", os.path.join(dirname, "{}.{}.pt".format(iter_no, job_id)),
                 os.path.join(dirname, "{}.pt".format(iter_no))])
     return process_out.returncode
 
@@ -42,6 +42,7 @@ if __name__ == '__main__':
     parser.add_argument("--model-file", default="local/chain/tuning/tdnn.py")
     parser.add_argument("--decode-data", default="data/test_clean_hires")
     parser.add_argument("--decode-iter", default="final")
+    parser.add_argument("--kaldi-model-dir", default="exp/chain_cleaned/tdnn_7k_1a_sp")
     args = parser.parse_args()
     cfg_parse = configparser.ConfigParser()
     cfg_parse.read("config")
@@ -80,6 +81,7 @@ if __name__ == '__main__':
     lores_train_data_dir = os.path.join(data, train_set + suffix)
     old_lang = os.path.join(data, "lang")
     new_lang = os.path.join(data, "lang_chain")
+    kaldi_model_dir = args.kaldi_model_dir 
 
     if stage <= 0:
         old_lang = os.path.join(data, "lang")
@@ -172,6 +174,7 @@ if __name__ == '__main__':
             model_file,
             "--mode", "init",
             "--dir", dirname,
+            "--kaldi-model-dir", kaldi_model_dir,
             os.path.join(dirname, "0.pt")])
         if process_out.returncode != 0:
             quit(process_out.returncode)
@@ -215,7 +218,6 @@ if __name__ == '__main__':
                     for p in as_completed(job_pool):
                         if p.result() != 0:
                             quit(p.result())
-            break
             model_list = [os.path.join(dirname,  "{}.{}.pt".format(iter_no, job_id)) for job_id in range(1, num_jobs+1)]
             process_out = subprocess.run(["queue.pl", "-l", "q_gpu", "-P", "parole", "-V",
                 "{}/log/merge.{}.log".format(dirname, iter_no+1),
@@ -253,7 +255,7 @@ if __name__ == '__main__':
             "--decode-feat", "scp:{}/split{}/JOB/feats.scp".format(decode_dir, num_jobs),
             os.path.join(dirname, "{}.pt".format(decode_iter)),
             "|",
-            "shutil/decode/latgen-faster-mapped.sh",
+            "local/shutil/decode/latgen-faster-mapped.sh",
             "data/lang_chain/words.txt",
             os.path.join(dirname, "0.trans_mdl"),
             graph,
@@ -262,7 +264,7 @@ if __name__ == '__main__':
         opf = open(os.path.join(out_dir, 'num_jobs'), 'w')
         opf.write('{}'.format(num_jobs))
         opf.close()
-        subprocess.run(["shutil/decode/score.sh",
+        subprocess.run(["local/shutil/decode/score.sh",
         "--cmd", "queue.pl -l q1d -l io_big -P parole -V",
         decode_dir,
         graph_dir,
