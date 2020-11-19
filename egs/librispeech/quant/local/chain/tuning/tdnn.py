@@ -1,7 +1,7 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3.7
 
-# %WER 20.06 [ 4040 / 20138, 370 ins, 638 del, 3032 sub ]
-# not a big difference compared to 1d or 1f. 
+# %WER 8.06 [ 4236 / 52576, 466 ins, 518 del, 3252 sub ]
+# WER of kaldi TDNN model with current architecture
 
 description = """
     this is 1c, but also uses residue
@@ -20,8 +20,8 @@ from torch.nn.utils import clip_grad_value_
 import sys
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
-tdnn_class_path = '/idiap/temp/aprasad/pkwrap/egs/am_quantization/local/model_classes'
-sys.path.insert(0, tdnn_class_path)
+nn_path = os.path.join(dir_path, '../nn')
+sys.path.insert(0, nn_path)
 
 from pytorch_components import TDNN as TDNN
 from pytorch_components import FixedAffineLayer as FixedAffineLayer
@@ -48,7 +48,6 @@ def train_lfmmi_one_iter(model, egs_file, den_fst_path, training_opts, feat_dim,
         # features = features[:,1+frame_shift:1+140+25+frame_shift,:]
         features = features.cuda()
         output, xent_output = model(features)
-        print(output.shape)
         sup = pkwrap.kaldi.chain.GetSupervisionFromEgs(merged_egs)
         deriv = criterion(training_opts, den_graph, sup, output, xent_output)
         acc_sum.add_(deriv[0])
@@ -176,6 +175,7 @@ if __name__ == '__main__':
         parser.add_argument("--decode-output", default="-", type=str)
         parser.add_argument("--decode-iter", default="final", type=str)
         parser.add_argument("--frame-shift", default=0, type=int)
+        parser.add_argument("--kaldi-model-dir", default="exp/chain_cleaned/tdnn_7k_1a_sp")
         parser.add_argument("base_model")
 
         args = parser.parse_args()
@@ -190,10 +190,11 @@ if __name__ == '__main__':
         assert feat_dim is not None
 
         if args.mode == 'init':
-            old_model_dir = '/idiap/temp/aprasad/kaldi/egs/librispeech/s5a/exp/chain_cleaned/tdnn_7k_1a_sp'
-            lda_path = os.path.join(old_model_dir, 'configs', 'lda.mat')
+            # kaldi_model_dir = '/idiap/temp/aprasad/kaldi/egs/librispeech/s5a/exp/chain_cleaned/tdnn_7k_1a_sp'
+            kaldi_model_dir = args.kaldi_model_dir
+            lda_path = os.path.join(kaldi_model_dir, 'configs', 'lda.mat')
             lda_matrix = pkwrap.kaldi.nnet3.LoadAffineTransform(lda_path)
-            model_path = os.path.join(old_model_dir, 'final.mdl')
+            model_path = os.path.join(kaldi_model_dir, 'final.mdl')
             model_params = pkwrap.kaldi.nnet3.GetNNet3Components(model_path)
             params = {name: param for index, name, param in model_params}
             model = Net(num_outputs, feat_dim, params=params, lda_matrix=lda_matrix)
@@ -258,13 +259,9 @@ if __name__ == '__main__':
                 writer_spec = "ark,t:{}".format(args.decode_output)
                 writer = pkwrap.script_utils.feat_writer(writer_spec)
                 for key, feats in pkwrap.script_utils.feat_reader_gen(args.decode_feats):
-                    feats_with_context = pkwrap.matrix.add_context(feats, 15, 15).unsqueeze(0)
+                    feats_with_context = pkwrap.matrix.add_context(feats, 0, 0).unsqueeze(0)
                     post, _ = model(feats_with_context)
                     post = post.squeeze(0).contiguous()
-                    tensor_to_kmat = pkwrap.kaldi.matrix.TensorToKaldiMatrix(post)
-                    sys.stderr.write(str(type(tensor_to_kmat)))
-                    sys.stderr.write('\n')
-                    # quit(1)
                     writer.Write(key, pkwrap.kaldi.matrix.TensorToKaldiMatrix(post))
                     sys.stderr.write("Wrote {}\n ".format( key))
                     sys.stderr.flush()
