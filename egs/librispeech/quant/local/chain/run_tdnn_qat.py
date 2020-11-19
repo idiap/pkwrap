@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 
 description = """
-  This script trains and tests a simple tdnn system.
-  It is the same as 1b, but uses NG-SGD.
+  This script trains and tests a simple tdnn system with quantization aware trainig.
 """
 
 import torch
@@ -42,6 +41,7 @@ if __name__ == '__main__':
     parser.add_argument("--model-file", default="local/chain/tuning/tdnn_qat.py")
     parser.add_argument("--decode-data", default="data/test_clean_hires")
     parser.add_argument("--decode-iter", default="final")
+    parser.add_argument("--kaldi-model-dir", default="exp/chain_cleaned/tdnn_7k_1a_sp")
     args = parser.parse_args()
     cfg_parse = configparser.ConfigParser()
     cfg_parse.read("config")
@@ -66,7 +66,7 @@ if __name__ == '__main__':
     gmm='tri6b_cleaned'
     nnet3_affix='_cleaned'
     suffix='_sp'
-    affix='7k_1a_pt_qat-a'
+    affix='7k_1a_pt_qat'
     tree_affix='mono_2a'
     data = 'data'
     exp = 'exp'
@@ -80,6 +80,7 @@ if __name__ == '__main__':
     lores_train_data_dir = os.path.join(data, train_set + suffix)
     old_lang = os.path.join(data, "lang")
     new_lang = os.path.join(data, "lang_chain")
+    kaldi_model_dir = args.kaldi_model_dir 
 
     if stage <= 0:
         old_lang = os.path.join(data, "lang")
@@ -172,6 +173,7 @@ if __name__ == '__main__':
             model_file,
             "--mode", "init",
             "--dir", dirname,
+            "--kaldi-model-dir", kaldi_model_dir,
             os.path.join(dirname, "0.pt")])
         if process_out.returncode != 0:
             quit(process_out.returncode)
@@ -253,7 +255,7 @@ if __name__ == '__main__':
             "--decode-feat", "scp:{}/split{}/JOB/feats.scp".format(decode_dir, num_jobs),
             os.path.join(dirname, "{}.pt".format(decode_iter)),
             "|",
-            "shutil/decode/latgen-faster-mapped.sh",
+            "local/shutil/decode/latgen-faster-mapped.sh",
             "data/lang_chain/words.txt",
             os.path.join(dirname, "0.trans_mdl"),
             graph,
@@ -262,7 +264,7 @@ if __name__ == '__main__':
         opf = open(os.path.join(out_dir, 'num_jobs'), 'w')
         opf.write('{}'.format(num_jobs))
         opf.close()
-        subprocess.run(["shutil/decode/score.sh",
+        subprocess.run(["local/shutil/decode/score.sh",
         "--cmd", "queue.pl -l q1d -l io_big -P parole -V",
         decode_dir,
         graph_dir,

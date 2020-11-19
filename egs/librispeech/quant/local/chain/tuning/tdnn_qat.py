@@ -20,8 +20,8 @@ from torch.nn.utils import clip_grad_value_
 import sys
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
-tdnn_class_path = '/idiap/temp/aprasad/pkwrap/egs/am_quantization/local/model_classes'
-sys.path.insert(0, tdnn_class_path)
+nn_path = os.path.join(dir_path, '../nn')
+sys.path.insert(0, nn_path)
 
 from pytorch_components import TDNNQAT as TDNN
 from pytorch_components import FixedAffineLayer as FixedAffineLayer
@@ -196,6 +196,7 @@ if __name__ == '__main__':
         parser.add_argument("--decode-output", default="-", type=str)
         parser.add_argument("--decode-iter", default="final", type=str)
         parser.add_argument("--frame-shift", default=0, type=int)
+        parser.add_argument("--kaldi-model-dir", default="exp/chain_cleaned/tdnn_7k_1a_sp")
         parser.add_argument("base_model")
 
         args = parser.parse_args()
@@ -210,10 +211,11 @@ if __name__ == '__main__':
         assert feat_dim is not None
 
         if args.mode == 'init':
-            old_model_dir = '/idiap/temp/aprasad/kaldi/egs/librispeech/s5a/exp/chain_cleaned/tdnn_7k_1a_sp'
-            lda_path = os.path.join(old_model_dir, 'configs', 'lda.mat')
+            # kaldi_model_dir = '/idiap/temp/aprasad/kaldi/egs/librispeech/s5a/exp/chain_cleaned/tdnn_7k_1a_sp'
+            kaldi_model_dir = args.kaldi_model_dir
+            lda_path = os.path.join(kaldi_model_dir, 'configs', 'lda.mat')
             lda_matrix = pkwrap.kaldi.nnet3.LoadAffineTransform(lda_path)
-            model_path = os.path.join(old_model_dir, 'final.mdl')
+            model_path = os.path.join(kaldi_model_dir, 'final.mdl')
             model_params = pkwrap.kaldi.nnet3.GetNNet3Components(model_path)
             params = {name: param for index, name, param in model_params}
             model = Net(num_outputs, feat_dim, params=params, lda_matrix=lda_matrix)
