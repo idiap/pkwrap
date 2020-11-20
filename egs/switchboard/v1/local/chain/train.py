@@ -225,7 +225,7 @@ def train():
             context = int(ipf.readline())
         pkwrap.script_utils.run([
             "steps/chain/get_egs.sh",
-            "--cmd", cuda_cmd,
+            "--cmd", cpu_cmd,
             "--cmvn-opts", "--norm-means=false --norm-vars=false",
             "--left-context", str(context),
             "--right-context", str(context),
