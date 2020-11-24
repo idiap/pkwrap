@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 
-# %WER 20.06 [ 4040 / 20138, 370 ins, 638 del, 3032 sub ]
-# not a big difference compared to 1d or 1f. 
+# Copyright (c) 2019 Idiap Research Institute, http://www.idiap.ch/
+# Written by 
+# Srikanth Madikeri <srikanth.madikeri@idiap.ch>,
+# Amrutha Prasad <amrutha.prasad@idiap.ch>
+
+# %WER 8.57 [ 4506 / 52576, 507 ins, 546 del, 3453 sub ]
+# not a big difference compared to tdnn. 
 
 description = """
-    this is 1c, but also uses residue
+    similar to tdnn, but applies fake quantization during training (QAT). 
     """
 
 import argparse

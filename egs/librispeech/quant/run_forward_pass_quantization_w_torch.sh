@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Copyright (c) 2020 Idiap Research Institute, http://www.idiap.ch/
+# Written by 
+# Amrutha Prasad <amrutha.prasad@idiap.ch>
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 stage=0

@@ -1,10 +1,15 @@
 #!/usr/bin/env python3.7
 
+# Copyright (c) 2019 Idiap Research Institute, http://www.idiap.ch/
+# Written by 
+# Srikanth Madikeri <srikanth.madikeri@idiap.ch>,
+# Amrutha Prasad <amrutha.prasad@idiap.ch>
+
 # %WER 8.06 [ 4236 / 52576, 466 ins, 518 del, 3252 sub ]
 # WER of kaldi TDNN model with current architecture
 
 description = """
-    this is 1c, but also uses residue
+    this is similar to Kaldi TDNN-ReLu-Batchnorm
     """
 
 import argparse
