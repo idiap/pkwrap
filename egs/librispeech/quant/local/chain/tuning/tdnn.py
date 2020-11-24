@@ -195,7 +195,6 @@ if __name__ == '__main__':
         assert feat_dim is not None
 
         if args.mode == 'init':
-            # kaldi_model_dir = '/idiap/temp/aprasad/kaldi/egs/librispeech/s5a/exp/chain_cleaned/tdnn_7k_1a_sp'
             kaldi_model_dir = args.kaldi_model_dir
             lda_path = os.path.join(kaldi_model_dir, 'configs', 'lda.mat')
             lda_matrix = pkwrap.kaldi.nnet3.LoadAffineTransform(lda_path)

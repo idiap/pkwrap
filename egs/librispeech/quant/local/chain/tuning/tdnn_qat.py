@@ -125,62 +125,35 @@ class Net(nn.Module):
     def forward(self, input): 
         mb, T, D = input.shape
         x = self.fal(input)
-        # x = self.quant(x)
+        
         x = self.tdnn1(x)
-        # x = F.relu(x)
-        # x = self.dequant(x)
         x = self.bn1(x)
 
-        # x = self.quant(x)
         x = self.tdnn2(x)
-        # x = F.relu(x)
-        # x = self.dequant(x)
         x = self.bn2(x)
 
-        # x = self.quant(x)
         x = self.tdnn3(x)
-        # x = F.relu(x)
-        # x = self.dequant(x)
         x = self.bn3(x)
-
-        # x = self.quant(x)
+        
         x = self.tdnn4(x)
-        # x = F.relu(x)
-        # x = self.dequant(x)
         x = self.bn4(x)
-
-        # x = self.quant(x)
+        
         x = self.tdnn5(x)
-        # x = F.relu(x)
-        # x = self.dequant(x)
         x = self.bn5(x)
-
-        # x = self.quant(x)
+        
         x = self.tdnn6(x)
-        # x = F.relu(x)
-        # x = self.dequant(x)
         x = self.bn6(x)
 
-        # x = self.quant(x)
         x = self.tdnn7(x)
-        # x = F.relu(x)
-        # x = self.dequant(x)
         tdnn7_out = self.bn7(x)
 
-        # tdnn7_out = self.quant(tdnn7_out)
         prefinal_chain_out = self.prefinal_chain(tdnn7_out)
-        # prefinal_chain_out = F.relu(prefinal_chain_out)
-        # prefinal_chain_out = self.dequant(prefinal_chain_out)
         prefinal_chain_out = self.prefinal_chain_bn(prefinal_chain_out)
 
-        # prefinal_chain_out = self.quant(prefinal_chain_out)
         chain_out = self.output(prefinal_chain_out)  
         prefinal_xent_out = self.prefinal_xent(tdnn7_out)
-        # prefinal_xent_out = F.relu(prefinal_xent_out)
-        # prefinal_xent_out = self.dequant(prefinal_xent_out)
         prefinal_xent_out = self.prefinal_xent_batchnorm(prefinal_xent_out)
 
-        # prefinal_xent_out = self.quant(prefinal_xent_out)
         xent_out = self.output_xent_affine(prefinal_xent_out)
         return chain_out, F.log_softmax(xent_out, dim=2)
 
@@ -216,7 +189,6 @@ if __name__ == '__main__':
         assert feat_dim is not None
 
         if args.mode == 'init':
-            # kaldi_model_dir = '/idiap/temp/aprasad/kaldi/egs/librispeech/s5a/exp/chain_cleaned/tdnn_7k_1a_sp'
             kaldi_model_dir = args.kaldi_model_dir
             lda_path = os.path.join(kaldi_model_dir, 'configs', 'lda.mat')
             lda_matrix = pkwrap.kaldi.nnet3.LoadAffineTransform(lda_path)
