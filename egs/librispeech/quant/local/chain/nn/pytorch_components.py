@@ -33,8 +33,6 @@ class TDNN(nn.Module):
         else:
             self.bias_ = nn.Parameter(torch.zeros(self.output_features, 1))
             self.linear_params_ = nn.Parameter(torch.ones(self.output_features, self.input_features * lcontext))
-#            self.bias_.zero_()
-#            self.linear_params_.zero_()
         
 
     def forward(self, input):
@@ -51,7 +49,6 @@ class TDNN(nn.Module):
         if self.subsampling_factor>1:
             padded_input = padded_input[:,::self.subsampling_factor,:]
 
-        # x = torch.mm(padded_input.view(-1, D*l), self.linear_params_.t()) 
         x = torch.mm(padded_input.reshape(-1, D*l), self.linear_params_.t()) 
         if self.bias_ is not None and self.bias_.shape[0] != 0:
             x += self.bias_.t()
@@ -87,8 +84,6 @@ class TDNNQAT(nn.Module):
         else:
             self.bias_ = nn.Parameter(torch.zeros(self.output_features, 1))
             self.linear_params_ = nn.Parameter(torch.ones(self.output_features, self.input_features * lcontext))
-#            self.bias_.zero_()
-#            self.linear_params_.zero_()
         self.quant = torch.quantization.QuantStub()
         self.dequant = torch.quantization.DeQuantStub()
 
@@ -108,16 +103,9 @@ class TDNNQAT(nn.Module):
             padded_input = padded_input[:,::self.subsampling_factor,:]
 
         padded_input = self.quant(padded_input)
-        # sys.stderr.write("In TDNNQAT forward ")
-        
-        # sys.stderr.write(str(padded_input.dtype))
-        # sys.stderr.write('\n')
-        # sys.stderr.write(str(padded_input))
-        # x = torch.mm(padded_input.view(-1, D*l), self.linear_params_.t()) 
         x = self.linear_layer(padded_input)
         x = F.relu(x.view(mb, -1, self.output_features))
         x = self.dequant(x)
-        # return x.view(mb, -1, self.output_features)
         return x
 
     def extra_repr(self):
