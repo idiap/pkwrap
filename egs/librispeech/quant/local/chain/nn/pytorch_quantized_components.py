@@ -101,114 +101,28 @@ class TDNN(nn.Module):
         
         scale, zero_point = calcScaleZeroPointInt8(self.linear_params_.data.min(), self.linear_params_.data.max())
 
-        self.qweight = torch.quantize_per_tensor(self.linear_params_.data, scale, zero_point, torch.qint8)
-
         qweight_int8 = quantize_tensor_int8(self.linear_params_, scale, zero_point)
         dequant_weight = (qweight_int8[0].float() - zero_point) * scale
-        # print("printing norm b/w weight and its dequantized version")
-        # print((self.linear_params_ - dequant_weight).norm())
         if use_int8:
             input_scale, input_zpt = calcScaleZeroPointInt8(input_min, input_max)
             padded_input_quant = quantize_tensor_int8(padded_input, input_scale, input_zpt)
-            padded_input_32b = padded_input_quant[0].to(torch.int32)
-            dequant_input = (padded_input_quant[0].float() - input_zpt) * input_scale
-            # print("printing norm b/w activation and its dequantized version")
-            # print((padded_input - dequant_input).norm())
         else:
-            # print("Using uint8 for activation quantization")
             input_scale, input_zpt = calcScaleZeroPoint(input_min, input_max)
             padded_input_quant = quantize_tensor_uint8(padded_input, input_scale, input_zpt)
-            # padded_input_32b = padded_input_quant[0].to(torch.uint32)    # torch doesn't support uint32
-            padded_input_32b = padded_input_quant[0].to(torch.int32)
+            # padded_input_int32 = padded_input_quant[0].to(torch.uint32)    # torch doesn't support uint32
 
         qweight_int32 = qweight_int8[0].to(torch.int32)
-        # padded_input_32b = padded_input_quant[0].to(torch.int32)
-        x1 = padded_input_32b.matmul(qweight_int32.t())
+        padded_input_int32 = padded_input_quant[0].to(torch.int32)
+        x1 = padded_input_int32.matmul(qweight_int32.t())
         x2 = input_zpt * qweight_int32.sum(1)
-        x3 = zero_point * padded_input_32b.sum(2)
+        x3 = zero_point * padded_input_int32.sum(2)
         N = self.linear_params_.shape[1]
         x = (x1 - x2).squeeze(0).t() - x3.reshape(-1)
         x = x + N * zero_point * input_zpt
         x = x.t().unsqueeze(0).float() * (input_scale * scale)
         if self.bias_ is not None and self.bias_.shape[0] != 0:
-            # x += self.bias_.reshape(1, -1)
             x += self.bias_.t()
-        # x = x + self.bias_.reshape(1, -1)
         return x, [dequant_weight, self.bias_]
-
-
-    def extra_repr(self):
-        return 'in_features={}, out_features={}, bias={}'.format(
-            self.in_features, self.out_features, self.bias is not None
-        )
-
-class TDNNTime(nn.Module):
-    def __init__(self, input_features, output_features, context=[], params=[], subsampling_factor=1):
-        super(TDNNTime, self).__init__()
-        lcontext = 1
-        self.context = torch.tensor(context)
-        self.subsampling_factor = torch.tensor(subsampling_factor)
-        if context is not None and len(context)>0:
-            lcontext = len(context)
-        else:
-            self.context = torch.tensor([1])
-        self.input_features = input_features
-        self.output_features = output_features
-        if params is not None and len(params) == 2:
-            self.linear_params_ = nn.Parameter(params[0], requires_grad=False)
-            self.bias_ = nn.Parameter(params[1].T, requires_grad=False)
-        elif params is not None and len(params) == 1:
-            self.linear_params_ = nn.Parameter(params[0], requires_grad=False)
-            self.bias_ = None
-        else:
-            self.bias_ = nn.Parameter(torch.Tensor(1,self.output_features))
-            self.linear_params_ = torch.ones(torch.Tensor(self.output_features, self.input_features))
-            self.bias_.zero_()
-            self.linear_params_.zero_()
-       
-
-    def forward(self, input, use_int8=True, input_min=None, input_max=None):
-        mb, N, D = input.shape
-        l = self.context.shape[0]
-        expected_N = (N-l+1)
-        padded_input = torch.zeros(mb, expected_N, D*l, device=input.device)
-        start_d = 0
-        for i,c in enumerate(self.context):
-            end_d = start_d+D
-            cint = int(c)
-            padded_input[:,:,start_d:end_d] = input[:,i:i+expected_N,:]
-            start_d = end_d
-        if self.subsampling_factor>1:
-            padded_input = padded_input[:,::self.subsampling_factor,:]
-        
-        scale, zero_point = calcScaleZeroPointInt8(self.linear_params_.data.min(), self.linear_params_.data.max())
-
-        self.qweight = torch.quantize_per_tensor(self.linear_params_.data, scale, zero_point, torch.qint8)
-
-        qweight_int8 = quantize_tensor_int8(self.linear_params_, scale, zero_point)
-        dequant_weight = (qweight_int8[0].float() - zero_point) * scale
-        if use_int8:
-            input_scale, input_zpt = calcScaleZeroPointInt8(input_min, input_max)
-            padded_input_quant = quantize_tensor_int8(padded_input, input_scale, input_zpt)
-            # dequant_input = (padded_input_quant[0].float() - input_zpt) * input_scale
-        else:
-            input_scale, input_zpt = calcScaleZeroPoint(input_min, input_max)
-            padded_input_quant = quantize_tensor_uint8(padded_input, input_scale, input_zpt)
-
-        qweight_int32 = qweight_int8[0].to(torch.int32)
-        padded_input_32b = padded_input_quant[0].to(torch.int32)
-        x1 = padded_input_32b.matmul(qweight_int32.t())
-        x2 = input_zpt * qweight_int32.sum(1)
-        x3 = zero_point * padded_input_32b.sum(2)
-        N = self.linear_params_.shape[1]
-        x = (x1 - x2).squeeze(0).t() - x3.reshape(-1)
-        x = x + N * zero_point * input_zpt
-        x = x.t().unsqueeze(0).float() * (input_scale * scale)
-        if self.bias_ is not None and self.bias_.shape[0] != 0:
-            # x += self.bias_.reshape(1, -1)
-            x += self.bias_.t()
-        # x = x + self.bias_.reshape(1, -1)
-        return x
 
 
     def extra_repr(self):
@@ -221,10 +135,7 @@ class TDNNF(nn.Module):
     def __init__(self, feat_dim, output_dim, bottleneck_dim, 
                 linear_context=[], affine_context=[], params={}):
         super(TDNNF, self).__init__()
-        # lets keep it context_len for now
-        # self.linearB = OrthonormalLinear(feat_dim*context_len, bottleneck_dim, scale=orthornomal_constraint)
-        # self.linearA = nn.Linear(bottleneck_dim, output_dim)
-
+        
         context_len = len(linear_context)
         self.linearB = TDNN(feat_dim*context_len, bottleneck_dim, linear_context, params['linear'])
         self.linearA = TDNN(bottleneck_dim*len(affine_context), output_dim, affine_context, params['affine'])
@@ -277,8 +188,6 @@ class TDNNFBatchnorm(nn.Module):
         if self.subsampling_factor > 1:
             x = x[:,::self.subsampling_factor,:]
 
-        # print("Print in TDNNF batchnorm")
-        # print(type(self.tdnnf.quantized_params['affine']))
         return x, self.tdnnf.quantized_params
 
 
