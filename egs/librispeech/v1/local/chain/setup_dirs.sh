@@ -30,7 +30,14 @@ link() {
 }
 
 echo "$0: Copying data folders"
-for data_name in train_960_cleaned_sp_hires dev_clean_hires dev_other_hires test_clean_hires test_other_hires; do
+for data_name in \
+    train_960_cleaned_sp \
+    train_960_cleaned_sp_hires \
+    dev_clean_hires \
+    dev_other_hires \
+    test_clean_hires \
+    test_other_hires; 
+do
     if [ -e data/$data_name ]; then
         echo "$0: data/$data_name already exists. Delete the folder to re-create it"
         echo "$0: Continuing to copy other folders..."
