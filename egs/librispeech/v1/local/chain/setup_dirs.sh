@@ -48,6 +48,6 @@ done
 echo "$0: Linking exp folders"
 [ ! -e exp ] && mkdir exp
 # gmm dir
-link $kaldi_folder/tri6b_cleaned exp/tri6b_cleaned
+link $kaldi_folder/exp/tri6b_cleaned exp/tri6b_cleaned
 # ali dir
-link $kaldi_folder/tri6b_cleaned_ali_train_960_cleaned_sp exp/tri6b_cleaned_ali_train_960_cleaned_sp
+link $kaldi_folder/exp/tri6b_cleaned_ali_train_960_cleaned_sp exp/tri6b_cleaned_ali_train_960_cleaned_sp
