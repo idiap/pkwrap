@@ -26,23 +26,21 @@ from pkwrap.chain import ChainModel
 class Net(nn.Module):
     def __init__(self, feat_dim, output_dim):
         super(Net, self).__init__()
-        def get_tdnnf_layer(feat_dim, layer_dim):
+
+        def get_tdnnf_layer(input_dim, layer_dim):
             return TDNNFBatchNorm(
-                feat_dim, 
+                input_dim, 
                 layer_dim, 
                 context_len=3, 
                 orthonormal_constraint=-1.0, 
                 bypass_scale=0.75,
             )
-        def get_tdnnf_layer_with_id(layer_id, feat_dim, layer_dim):
-            return (f"tdnnf{layer_id}", get_tdnnf_layer(feat_dim, layer_dim))
         
         self.tdnnf_layers = nn.Sequential(
-                OrderedDict([
-                    get_tdnnf_layer(1, feat_dim, 1536),
-                    *[get_tdnnf_layer(i, 1536, 1536) for i in range(2, 4)],
-                    ["tdnn4", TDNNFBatchNorm(1536, 1536, context_len=3, subsampling_factor=3, orthonormal_constraint=-1.0)],
-                    *[get_tdnnf_layer(i, 1536, 1536) for i in range(5, 18)],
+                    TDNNFBatchNorm(feat_dim, 1536, context_len=3, orthonormal_constraint=-1.0),
+                    *[get_tdnnf_layer(1536, 1536) for i in range(2, 4)],
+                    TDNNFBatchNorm(1536, 1536, context_len=3, subsampling_factor=3, orthonormal_constraint=-1.0),
+                    *[get_tdnnf_layer(1536, 1536) for i in range(5, 18)],
                 ])
         )
         self.chain_layers = nn.Sequential(
