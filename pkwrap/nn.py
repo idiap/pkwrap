@@ -222,19 +222,19 @@ class TDNNF(nn.Module):
         bottleneck_dim,
         context_len=1,
         subsampling_factor=1,
-        orthornomal_constraint=0.0,
+        orthonormal_constraint=0.0,
         floating_scale=True,
         bypass_scale=0.66):
         super(TDNNF, self).__init__()
         # lets keep it context_len for now
-        self.linearB = OrthonormalLinear(feat_dim*context_len, bottleneck_dim, scale=orthornomal_constraint)
+        self.linearB = OrthonormalLinear(feat_dim*context_len, bottleneck_dim, scale=orthonormal_constraint)
         self.linearA = nn.Linear(bottleneck_dim, output_dim)
         self.output_dim = torch.tensor(output_dim, requires_grad=False)
         self.bottleneck_dim = torch.tensor(bottleneck_dim, requires_grad=False)
         self.feat_dim = torch.tensor(feat_dim, requires_grad=False)
         self.subsampling_factor = torch.tensor(subsampling_factor, requires_grad=False)
         self.context_len = torch.tensor(context_len, requires_grad=False)
-        self.orthornomal_constraint = torch.tensor(orthornomal_constraint, requires_grad=False)
+        self.orthonormal_constraint = torch.tensor(orthonormal_constraint, requires_grad=False)
         self.bypass_scale = torch.tensor(bypass_scale, requires_grad=False)
         if bypass_scale>0. and feat_dim == output_dim:
             self.use_bypass = True
@@ -270,7 +270,7 @@ class TDNNF(nn.Module):
         return x
 
 class TDNNFBatchNorm(nn.Module):
-    def __init__(self, feat_dim, output_dim, bottleneck_dim, context_len=1, subsampling_factor=1, orthornomal_constraint=0.0):
+    def __init__(self, feat_dim, output_dim, bottleneck_dim, context_len=1, subsampling_factor=1, orthonormal_constraint=0.0):
         super(TDNNFBatchNorm, self).__init__()
         self.tdnn = TDNNF(
             feat_dim,
@@ -278,7 +278,7 @@ class TDNNFBatchNorm(nn.Module):
             bottleneck_dim,
             context_len=context_len,
             subsampling_factor=subsampling_factor,
-            orthornomal_constraint=orthornomal_constraint
+            orthonormal_constraint=orthonormal_constraint
         )
         self.bn = nn.BatchNorm1d(output_dim, affine=False)
         self.output_dim = torch.tensor(output_dim, requires_grad=False)
