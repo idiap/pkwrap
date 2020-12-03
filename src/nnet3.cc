@@ -184,17 +184,3 @@ torch::Tensor LoadAffineTransform(std::string matrix_path) {
     ReadKaldiObject(matrix_path, &mat);
     return KaldiMatrixToTensor(mat);
 }
-
-
-/*
- *  
- *
- *    model_params = pkwrap.kaldi.nnet3.GetNNet3Components(model_path)
- *    params = {name: param for index, name, param in model_params}
- *    self.param_indices = {name: index for index, name, param in model_params}
- *
- *    param_indices = nnet.param_indices
- *    quantized_params = nnet.quantized_params
- *    q_params = [(param_indices[name], name, param) for name, param in quantized_params.items()]
-      pkwrap.kaldi.nnet3.SaveNNet3Components(model_file, quantizedModel, q_params)
- */
