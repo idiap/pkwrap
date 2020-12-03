@@ -130,7 +130,7 @@ def train():
             #           TODO: should use logging
             sys.stderr.write(e)
             sys.stderr.write("ERROR: copying lang failed")
-        logging.info(f"Created {new_lang} folder")
+        logging.info(f"Created {lang_chain} folder")
     # create lats
     if stage <= 1:
         logging.info("Create supervision lattices")
@@ -170,7 +170,7 @@ def train():
                 f"{ali_dir}",
                 f"{tree_dir}",
             ]
-            subprocess.run(cmd)
+            pkwrap.script_utils.run(cmd)
             subprocess.run(["touch", "{}/.done".format(tree_dir)])
     if not os.path.isdir(dirname):
         os.makedirs(dirname)
