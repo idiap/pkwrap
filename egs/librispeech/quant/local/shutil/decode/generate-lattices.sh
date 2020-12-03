@@ -1,14 +1,5 @@
 #!/bin/bash
 
-<<<<<<< HEAD
-=======
-# words='/idiap/temp/aprasad/kaldi/egs/fisher_swbd/s5/exp/chain/tdnn_7k_swbd_6eps_tree4k_lang7k/graph_fsh_sw1_tg/words.txt'
-# trans_mdl='/idiap/temp/aprasad/kaldi/egs/fisher_swbd/s5/exp/chain/tdnn_7k_swbd_6eps_tree4k_lang7k/0.trans_mdl'
-# graph='/idiap/temp/aprasad/kaldi/egs/fisher_swbd/s5/exp/chain/tdnn_7k_swbd_6eps_tree4k_lang7k/graph_fsh_sw1_tg/HCLG.fst'
-# llf=$1
-# latf=$2
-
->>>>>>> 6b7dcdaa84cdd5babf6c53ac32546b0d9241cc36
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 echo "$0 $@"  
