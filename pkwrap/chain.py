@@ -515,6 +515,12 @@ class ChainModel(nn.Module):
             writer.Close()
 
     def context(self):
+        """Find context by brute force
+
+        WARNING: it only works for frame_subsampling_factor=3
+        """
+
+        logging.warning("context function called. it only works for frame_subsampling_factor=3")
         visited = Counter()
         with torch.no_grad():
           feat_dim = 40
@@ -532,7 +538,7 @@ class ChainModel(nn.Module):
                   try:
                       test_feats = torch.zeros(32, feat_len, feat_dim)
                       y = model(test_feats)
-                  except:
+                  except Exception as e:
                       visited[left_context] += 1
                       if visited[left_context] > 10:
                           break
