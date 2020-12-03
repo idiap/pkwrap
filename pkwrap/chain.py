@@ -54,9 +54,9 @@ class KaldiChainObjfFunction(torch.autograd.Function):
             The derivatives are stored in the context and used by the backward()
             function.
         """
-        objf = torch.zeros(1)
-        l2_term = torch.zeros(1)
-        weight = torch.zeros(1)
+        objf = torch.zeros(1, requires_grad=False)
+        l2_term = torch.zeros(1, requires_grad=False)
+        weight = torch.zeros(1, requires_grad=False)
         mb, T, D = nnet_output_tensor.shape
         # Kaldi expects the outputs to be groups by time frames. So
         # we need to permut the output
@@ -79,15 +79,16 @@ class KaldiChainObjfFunction(torch.autograd.Function):
         xent_deriv = xent_deriv.reshape(T, mb, D).permute(1, 0, 2)
 
         ctx.save_for_backward(nnet_deriv, xent_deriv)
-        xent_objf = (xent_out_tensor*xent_deriv).sum()/(mb*T)
-        objf[0] = objf[0]/weight[0]
-        sys.stderr.write(
-            "objf={}, l2={}, xent_objf={}\n".format(
-                objf[0],
-                l2_term[0]/weight[0],
-                xent_objf,
+        with torch.no_grad():
+            xent_objf = (xent_out_tensor*xent_deriv).sum()/(mb*T)
+            objf[0] = objf[0]/weight[0]
+            sys.stderr.write(
+                "objf={}, l2={}, xent_objf={}\n".format(
+                    objf[0],
+                    l2_term[0]/weight[0],
+                    xent_objf,
+                )
             )
-        )
         return objf
 
     @staticmethod
@@ -146,7 +147,7 @@ class OnlineNaturalGradient(torch.autograd.Function):
             mb_T = mb*T
         else:
             mb_T, D = input.shape
-        input_temp = torch.zeros(mb_T, D+1, device=input.device).contiguous()
+        input_temp = torch.zeros(mb_T, D+1, device=input.device, requires_grad=False).contiguous()
         input_temp[:,-1] = 1.0
         input_temp[:,:-1].copy_(input.reshape(mb_T, D))
         grad_weight = grad_bias = None
