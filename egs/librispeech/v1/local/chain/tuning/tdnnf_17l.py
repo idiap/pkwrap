@@ -34,18 +34,18 @@ class Net(nn.Module):
                 context_len=3, 
                 orthonormal_constraint=-1.0, 
                 bypass_scale=0.75,
+                bottleneck_dim=160,
             )
         
         self.tdnnf_layers = nn.Sequential(
-                    TDNNFBatchNorm(feat_dim, 1536, context_len=3, orthonormal_constraint=-1.0),
+                    TDNNFBatchNorm(feat_dim, 1536, context_len=3, orthonormal_constraint=-1.0, bottleneck_dim=160),
                     *[get_tdnnf_layer(1536, 1536) for i in range(2, 4)],
-                    TDNNFBatchNorm(1536, 1536, context_len=3, subsampling_factor=3, orthonormal_constraint=-1.0),
+                    TDNNFBatchNorm(1536, 1536, context_len=3, subsampling_factor=3, orthonormal_constraint=-1.0, bottleneck_dim=160),
                     *[get_tdnnf_layer(1536, 1536) for i in range(5, 18)],
-                ])
         )
         self.chain_layers = nn.Sequential(
                 OrderedDict([
-                    ["prefinal_chain", TDNNFBatchNorm(512, 512, context_len=1, orthonormal_constraint=-1.0)],
+                    ["prefinal_chain", TDNNFBatchNorm(512, 512, context_len=1, orthonormal_constraint=-1.0, bottleneck_dim=160)],
                     ["chain_output", NaturalAffineTransform(512, output_dim)],
                 ])
         )
@@ -53,7 +53,7 @@ class Net(nn.Module):
         self.chain_layers[-1].bias.data.zero_()
         self.xent_layers = nn.Sequential(
                 OrderedDict([
-                    ["prefinal_xent", TDNNFBatchNorm(512, 512, context_len=1, orthonormal_constraint=-1.0)],
+                    ["prefinal_xent", TDNNFBatchNorm(512, 512, context_len=1, orthonormal_constraint=-1.0, bottleneck_dim=160)],
                     ["xent_output", NaturalAffineTransform(512, output_dim)],
                 ])
         )
