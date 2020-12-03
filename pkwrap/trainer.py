@@ -29,6 +29,7 @@ class TrainerOpts:
     cmd: str = 'queue.pl -l q_gpu -V'
     diagnostics_interval: int = 10
     online_ivector_dir: str =  ''
+    minibatch_size:str = "32"
     
     def load_from_config(self, cfg):
         for key, value in cfg.items():
@@ -39,6 +40,7 @@ class TrainerOpts:
 
     def load_from_config_file(self, cfg, name="trainer"):
         raise NotImplementedError
+
 @dataclass
 class ModelOpts:
     model_file: str = ''
