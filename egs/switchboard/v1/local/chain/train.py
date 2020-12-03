@@ -316,7 +316,7 @@ def train():
                         p = executor.submit(run_job,num_jobs, job_id, dirname, iter_no,
                                         model_file, lr, frame_shift, 
                                         egs_dir, num_archives, num_archives_processed,
-                                        "128,64", cuda_cmd)
+                                        exp_cfg["minibatch_size"], cuda_cmd)
                         num_archives_processed += 1
                         job_pool.append(p)
                     for p in as_completed(job_pool):
