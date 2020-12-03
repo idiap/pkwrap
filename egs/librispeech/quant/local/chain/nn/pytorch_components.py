@@ -118,9 +118,6 @@ class TDNNF(nn.Module):
                 linear_context=[], affine_context=[], params={}):
         super(TDNNF, self).__init__()
         # lets keep it context_len for now
-        # self.linearB = OrthonormalLinear(feat_dim*context_len, bottleneck_dim, scale=orthornomal_constraint)
-        # self.linearA = nn.Linear(bottleneck_dim, output_dim)
-        
         context_len = len(linear_context)
         self.linearB = TDNN(feat_dim*context_len, bottleneck_dim, linear_context, params['linear'])
         self.linearA = TDNN(bottleneck_dim*len(affine_context), output_dim, affine_context, params['affine'])
