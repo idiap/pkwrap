@@ -19,7 +19,7 @@ import torch
 import torch.nn.functional as F
 import torch.nn as nn
 import pkwrap
-from pkwrap.nn import TDNNFBatchNorm, NaturalAffineTransform
+from pkwrap.nn import TDNNFBatchNorm, NaturalAffineTransform, OrthonormalLinear
 from pkwrap.chain import ChainModel
 
 
@@ -42,20 +42,19 @@ class Net(nn.Module):
                     *[get_tdnnf_layer(1536, 1536) for i in range(2, 4)],
                     TDNNFBatchNorm(1536, 1536, context_len=3, subsampling_factor=3, orthonormal_constraint=-1.0, bottleneck_dim=160),
                     *[get_tdnnf_layer(1536, 1536) for i in range(5, 18)],
+                    OrthonormalLinear(1536, 256, scale=-1.0),
         )
         self.chain_layers = nn.Sequential(
-                OrderedDict([
-                    ["prefinal_chain", TDNNFBatchNorm(512, 512, context_len=1, orthonormal_constraint=-1.0, bottleneck_dim=160)],
-                    ["chain_output", NaturalAffineTransform(512, output_dim)],
-                ])
+                OrthonormalLinear(256, 1536, scale=-1.0),
+                OrthonormalLinear(1536, 256, scale=-1.0),
+                NaturalAffineTransform(256, output_dim),
         )
         self.chain_layers[-1].weight.data.zero_()
         self.chain_layers[-1].bias.data.zero_()
         self.xent_layers = nn.Sequential(
-                OrderedDict([
-                    ["prefinal_xent", TDNNFBatchNorm(512, 512, context_len=1, orthonormal_constraint=-1.0, bottleneck_dim=160)],
-                    ["xent_output", NaturalAffineTransform(512, output_dim)],
-                ])
+                OrthonormalLinear(256, 1536, scale=-1.0),
+                OrthonormalLinear(1536, 256, scale=-1.0),
+                NaturalAffineTransform(256, output_dim),
         )
         self.xent_layers[-1].weight.data.zero_()
         self.xent_layers[-1].bias.data.zero_()
