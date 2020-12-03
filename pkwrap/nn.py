@@ -270,7 +270,16 @@ class TDNNF(nn.Module):
         return x
 
 class TDNNFBatchNorm(nn.Module):
-    def __init__(self, feat_dim, output_dim, bottleneck_dim, context_len=1, subsampling_factor=1, orthonormal_constraint=0.0):
+    def __init__(
+        self, 
+        feat_dim, 
+        output_dim, 
+        bottleneck_dim,
+        context_len=1,
+        subsampling_factor=1,
+        orthonormal_constraint=0.0,
+        bypass_scale=0.66
+    ):
         super(TDNNFBatchNorm, self).__init__()
         self.tdnn = TDNNF(
             feat_dim,
@@ -278,7 +287,8 @@ class TDNNFBatchNorm(nn.Module):
             bottleneck_dim,
             context_len=context_len,
             subsampling_factor=subsampling_factor,
-            orthonormal_constraint=orthonormal_constraint
+            orthonormal_constraint=orthonormal_constraint,
+            bypass_scale=bypass_scale,
         )
         self.bn = nn.BatchNorm1d(output_dim, affine=False)
         self.output_dim = torch.tensor(output_dim, requires_grad=False)
