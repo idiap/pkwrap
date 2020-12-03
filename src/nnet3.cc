@@ -78,10 +78,8 @@ std::vector<std::tuple<int, std::string,std::vector<torch::Tensor> > > GetNNet3C
         else if(ends_with(name, "prefinal-l") || ends_with(name, "prefinal-chain.linear")) {
             kaldi::nnet3::LinearComponent* cg = (kaldi::nnet3::LinearComponent*) c;
             torch::Tensor t_lp = KaldiCudaMatrixBaseToTensor(cg->Params()).clone().detach();
-            // torch::Tensor t_bp = KaldiCudaVectorToTensor(cg->BiasParams()).clone().detach();
             std::vector<torch::Tensor> params;
             params.push_back(t_lp);
-            // params.push_back(t_bp);
             model.push_back(std::make_tuple(i, name, params));
         }
     }
@@ -170,7 +168,6 @@ void SaveNNet3Components(std::string model_path,
             kaldi::nnet3::NaturalGradientAffineComponent* cg = (kaldi::nnet3::NaturalGradientAffineComponent*) c;
             cg->UnVectorize(vec);
         }
-        // else if()
     }
     WriteKaldiObject(nnet, new_model_path, true);
     std::cout <<"Succesfully wrote model!" << std::endl;
