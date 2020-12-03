@@ -13,5 +13,6 @@ export KALDI_ROOT=...
 # run this only if links are not already there
 ./make_links.sh
 
+local/chain/setup_dirs_960h.sh
 local/chain/train.py
 ```
