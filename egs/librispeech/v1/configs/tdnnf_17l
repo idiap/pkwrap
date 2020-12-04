@@ -23,9 +23,11 @@ graph_dir = exp/chain/tdnnf_17l/graph_nosp_test_tgsmall
 num_epochs = 4
 num_jobs_initial = 3
 num_jobs_final = 16
+frames_per_iter = 2500000
 lr_initial = 0.00015
 lr_final = 0.000015
 diagnostics_interval = 10
+minibatch_size = 64
 
 [test]
 test_set = data/dev_clean_hires
