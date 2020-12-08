@@ -5,5 +5,8 @@
 import torch
 import pkwrap
 
-print(dir(pkwrap))
-print("Import successfull")
+x = torch.zeros(3,3).uniform_()
+x = x.cuda()
+pkwrap.kaldi.InstantiateKaldiCuda()
+x_kaldi = pkwrap.kaldi.matrix.TensorToKaldiCuSubMatrix(x)
+print("CuSubMatrix created")

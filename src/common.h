@@ -6,6 +6,8 @@
 #include <pybind11/pybind11.h> 
 #include <typeinfo>
 #include <string>
+// Pytorch imports
+#include <torch/extension.h>
 
 // Kaldi related imports
 #include "base/kaldi-common.h"
@@ -17,6 +19,4 @@
 #include "nnet3/nnet-normalize-component.h"
 #include "cudamatrix/cu-matrix.h"
 
-// Pytorch imports
-#include <torch/extension.h>
 #endif

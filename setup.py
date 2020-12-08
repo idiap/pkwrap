@@ -23,10 +23,6 @@ if not KALDI_ROOT:
     sys.stderr.write('ERROR: KALDI_ROOT variable is not defined or empty')
     quit(1)
 KALDI_LIB_DIR = os.path.join(KALDI_ROOT, 'src', 'lib')
-MKL_LIB_DIR = ''
-MKL_ROOT = os.getenv('MKL_ROOT')
-if MKL_ROOT:
-    MKL_LIB_DIR = os.path.join(MKL_ROOT, 'lib')
 
 PACKAGE_NAME = 'pkwrap'
 EXTENSION_NAME = '_pkwrap'
@@ -38,7 +34,6 @@ SRC_FILES = ['src/pkwrap-main.cc',
 EXTRA_COMPILE_ARGS = {
     'cxx':[ '-I{}/src'.format(KALDI_ROOT),
             '-I{}/tools/openfst/include'.format(KALDI_ROOT),
-            '-I{}/include'.format(MKL_ROOT),
             '-m64',
             '-msse',
             '-msse2',
@@ -56,13 +51,19 @@ LIBRARIES = ["kaldi-base", "kaldi-matrix", "kaldi-util", "kaldi-cudamatrix",
              "kaldi-decoder", "kaldi-lat", "kaldi-gmm", "kaldi-hmm", "kaldi-tree",
              "kaldi-transform", "kaldi-chain", "kaldi-fstext", "kaldi-nnet3",
              "mkl_intel_lp64", "mkl_core", "mkl_sequential"]
-LIBRARY_DIRS = [KALDI_LIB_DIR, MKL_LIB_DIR]
+LIBRARY_DIRS = [KALDI_LIB_DIR]
+MKL_ROOT = os.getenv('MKL_ROOT')
+MKL_LIB_DIR = ''
+if MKL_ROOT:
+    MKL_LIB_DIR = os.path.join(MKL_ROOT, 'lib')
+    LIBRARY_DIRS.append(MKL_LIB_DIR)
+    EXTRA_COMPILE_ARGS['cxx'] += ['-I{}/include'.format(MKL_ROOT)]
 
 AUTHORS = ['Srikanth Madikeri']
 AUTHOR_STR = ','.join(AUTHORS)
 
 LICENSE = 'Apache 2.0'
-VERSION = '0.3.2'
+VERSION = '0.3.3'
 
 setup(name=PACKAGE_NAME,
       version=VERSION,
@@ -73,6 +74,7 @@ setup(name=PACKAGE_NAME,
                                               language="c++",
                                               extra_compile_args=EXTRA_COMPILE_ARGS,
                                               libraries=LIBRARIES,
-                                              library_dirs=LIBRARY_DIRS)
+                                              library_dirs=LIBRARY_DIRS,
+                                             )
                   ],
       cmdclass={'build_ext': cpp_extension.BuildExtension})

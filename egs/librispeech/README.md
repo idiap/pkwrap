@@ -1,5 +1,5 @@
-# README
+# Librispeech recipe
 
-This folder contains experiments with Librespeech. 
+This folder contains recipes to run experiments with Librespeech dataset. 
 
-- ``qat``: quantization aware training experiments
+- ``quant``: recipes for post training quantization and quantization aware training experiments
