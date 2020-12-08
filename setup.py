@@ -63,7 +63,7 @@ AUTHORS = ['Srikanth Madikeri']
 AUTHOR_STR = ','.join(AUTHORS)
 
 LICENSE = 'Apache 2.0'
-VERSION = '0.3.3'
+VERSION = '0.2.8'
 
 setup(name=PACKAGE_NAME,
       version=VERSION,
