@@ -530,7 +530,6 @@ class ChainModel(nn.Module):
           feat_dim = 40
           num_pdfs = 300 
           model = self.Net(40, 300)
-          # output len = ceil(chunk size / frame_subsampling_factor)
           chunk_sizes = [(150,50), (50, 17), (100, 34), (10, 4), (20, 7)]
           frame_shift = 0
           left_context = 0
