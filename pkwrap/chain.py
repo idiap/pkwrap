@@ -476,23 +476,23 @@ class ChainModel(nn.Module):
                 frame_shift=chain_opts.frame_shift,
             )
 
+    @torch.no_grad()
     def merge(self):
-        with torch.no_grad():
-            chain_opts = self.chain_opts
-            base_models = chain_opts.base_model.split(',')
-            assert len(base_models)>0
-            model0 = self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
-            model0.load_state_dict(torch.load(base_models[0]))
-            model_acc = dict(model0.named_parameters())
-            for mdl_name in base_models[1:]:
-                this_mdl = self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
-                this_mdl.load_state_dict(torch.load(mdl_name))
-                for name, params in this_mdl.named_parameters():
-                    model_acc[name].data.add_(params.data)
-            weight = 1.0/len(base_models)
-            for name in model_acc:
-                model_acc[name].data.mul_(weight)
-            torch.save(model0.state_dict(), chain_opts.new_model)
+        chain_opts = self.chain_opts
+        base_models = chain_opts.base_model.split(',')
+        assert len(base_models)>0
+        model0 = self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
+        model0.load_state_dict(torch.load(base_models[0]))
+        model_acc = dict(model0.named_parameters())
+        for mdl_name in base_models[1:]:
+            this_mdl = self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
+            this_mdl.load_state_dict(torch.load(mdl_name))
+            for name, params in this_mdl.named_parameters():
+                model_acc[name].data.add_(params.data)
+        weight = 1.0/len(base_models)
+        for name in model_acc:
+            model_acc[name].data.mul_(weight)
+        torch.save(model0.state_dict(), chain_opts.new_model)
 
     def infer(self):
         with torch.no_grad():
