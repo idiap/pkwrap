@@ -344,9 +344,24 @@ def train():
             if iter_no >= 20:
                 mdl = os.path.join(dirname, "{}.pt".format(iter_no-10))
                 pkwrap.script_utils.run(["rm", mdl])
-        src = os.path.join(dirname, "{}.pt".format(num_iters))
-        dst = os.path.join(dirname, "final.pt")
-        pkwrap.script_utils.run(['ln', '-r', '-s', src, dst])
+    # do final model combination
+    model_list = [
+            os.path.join(dirname, f"{i}.pt")
+            for i in range(num_iters, num_iters-10, -1)
+    ]
+    logging.info("Final model combination...")
+    diagnostic_name = 'valid'
+    egs_file = os.path.join(egs_dir, '{}_diagnostic.cegs'.format(diagnostic_name))
+    process_out = subprocess.run([
+        *cuda_cmd.split(),
+        "{}/log/combine.log".format(dirname),
+        model_file,
+        "--dir", dirname,
+        "--mode", "final_combination",
+        "--new-model", os.path.join(dirname, "final.pt"),
+        "--egs", "ark:{}".format(egs_file),
+        ",".join(model_list)
+    ])
 
     graph_dir = ""
     decode_params = cfg_parse[args.test_config]
