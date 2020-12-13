@@ -494,29 +494,29 @@ class ChainModel(nn.Module):
             model_acc[name].data.mul_(weight)
         torch.save(model0.state_dict(), chain_opts.new_model)
 
+    @torch.no_grad()
     def infer(self):
-        with torch.no_grad():
-            chain_opts = self.chain_opts
-            model = self.Net(chain_opts.feat_dim, chain_opts.output_dim)
-            base_model = chain_opts.base_model
-            try:
-                model.load_state_dict(torch.load(base_model))
-            except Exception as e:
-                logging.error(e)
-                logging.error("Cannot load model {}".format(base_model))
-                quit(1)
-            # TODO(srikanth): make sure context is a member of chain_opts
-            context = chain_opts.context
-            model.eval()
-            writer_spec = "ark,t:{}".format(chain_opts.decode_output)
-            writer = script_utils.feat_writer(writer_spec)
-            for key, feats in script_utils.feat_reader_gen(chain_opts.decode_feats):
-                feats_with_context = matrix.add_context(feats, context, context).unsqueeze(0)
-                post, _ = model(feats_with_context)
-                post = post.squeeze(0)
-                writer.Write(key, kaldi.matrix.TensorToKaldiMatrix(post))
-                logging.info("Wrote {}\n ".format(key))
-            writer.Close()
+        chain_opts = self.chain_opts
+        model = self.Net(chain_opts.feat_dim, chain_opts.output_dim)
+        base_model = chain_opts.base_model
+        try:
+            model.load_state_dict(torch.load(base_model))
+        except Exception as e:
+            logging.error(e)
+            logging.error("Cannot load model {}".format(base_model))
+            quit(1)
+        # TODO(srikanth): make sure context is a member of chain_opts
+        context = chain_opts.context
+        model.eval()
+        writer_spec = "ark,t:{}".format(chain_opts.decode_output)
+        writer = script_utils.feat_writer(writer_spec)
+        for key, feats in script_utils.feat_reader_gen(chain_opts.decode_feats):
+            feats_with_context = matrix.add_context(feats, context, context).unsqueeze(0)
+            post, _ = model(feats_with_context)
+            post = post.squeeze(0)
+            writer.Write(key, kaldi.matrix.TensorToKaldiMatrix(post))
+            logging.info("Wrote {}\n ".format(key))
+        writer.Close()
 
     def context(self):
         """Find context by brute force
