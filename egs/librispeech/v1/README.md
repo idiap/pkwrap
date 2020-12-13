@@ -16,3 +16,9 @@ export KALDI_ROOT=...
 local/chain/setup_dirs_960h.sh
 local/chain/train.py
 ```
+
+### RESULTS
+
+| Model | config | dev-clean | dev-others | test-clean | test-others |
+| ---------- | ---------- | ---------- |  ---------- |  ---------- |  ---------- |
+| TDNNF 17 layers with dropout | ``tdnnf_17l``| 6.8 | - | - | - |
