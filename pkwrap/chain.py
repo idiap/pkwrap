@@ -408,6 +408,8 @@ class ChainModel(nn.Module):
             self.train()
         elif self.chain_opts.mode in ['decode', 'infer']:
             self.infer()
+        elif self.chain_opts.mode == 'final_combination':
+            self.combine_final_model()
 
     def init(self):
         model = self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
@@ -613,3 +615,65 @@ class ChainModel(nn.Module):
         args = parser.parse_args()
         return args
 
+    @torch.no_grad()
+    def combine_final_model(self):
+        """Implements Kaldi-style model ensembling"""
+        kaldi.InstantiateKaldiCuda()
+        chain_opts = self.chain_opts
+        den_fst_path = os.path.join(chain_opts.dir, "den.fst")
+        base_models = chain_opts.base_model.split(',')
+        assert len(base_models)>0
+        training_opts = kaldi.chain.CreateChainTrainingOptions(
+                chain_opts.l2_regularize, 
+                chain_opts.out_of_range_regularize, 
+                chain_opts.leaky_hmm_coefficient, 
+                chain_opts.xent_regularize,
+        ) 
+
+        moving_average = self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
+        best_mdl =  self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
+        moving_average.load_state_dict(torch.load(base_models[0]))
+        moving_average.cuda()
+        best_mdl = moving_average
+        compute_objf = lambda mdl: compute_chain_objf(
+            mdl,
+            chain_opts.egs, 
+            den_fst_path, 
+            training_opts,
+            minibatch_size="1:64", # TODO: this should come from a config
+            left_context=chain_opts.context,
+            right_context=chain_opts.context,
+            frame_shift=chain_opts.frame_shift,
+        )
+
+        _, init_objf = compute_objf(moving_average)
+        best_objf = init_objf
+
+        model_acc = dict(moving_average.named_parameters())
+        num_accumulated = torch.Tensor([1.0]).reshape(1).cuda()
+        best_num_to_combine = 1
+        for mdl_name in base_models[1:]:
+            this_mdl = self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
+            logging.info("Combining model {}".format(mdl_name))
+            this_mdl.load_state_dict(torch.load(mdl_name))
+            this_mdl = this_mdl.cuda()
+            # TODO(srikanth): check why is this even necessary
+            moving_average.cuda()
+            num_accumulated += 1.
+            for name, params in this_mdl.named_parameters():
+                model_acc[name].data.mul_((num_accumulated-1.)/(num_accumulated))
+                model_acc[name].data.add_(params.data.mul_(1./num_accumulated))
+            _, this_objf = compute_objf(moving_average)
+            if this_objf > best_objf:
+                best_objf = this_objf
+                best_mdl = moving_average
+                best_num_to_combine = num_accumulated.clone().detach()
+                logging.info("Found best model")
+            else:
+                logging.info("Won't update best model")
+                        
+        logging.info("Combined {} models".format(best_num_to_combine.cpu()))
+        logging.info("Initial objf = {}, Final objf = {}".format(init_objf, best_objf))
+        best_mdl.cpu()
+        torch.save(best_mdl.state_dict(), chain_opts.new_model)
+        return self
