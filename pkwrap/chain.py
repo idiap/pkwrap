@@ -445,6 +445,7 @@ class ChainModel(nn.Module):
         torch.save(new_model.state_dict(), chain_opts.new_model)
 
     def validate(self):
+        kaldi.InstantiateKaldiCuda()
         chain_opts = self.chain_opts
         den_fst_path = os.path.join(chain_opts.dir, "den.fst")
 
