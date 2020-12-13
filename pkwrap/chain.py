@@ -309,13 +309,12 @@ def train_lfmmi_one_iter(model, egs_file, den_fst_path, training_opts, feat_dim,
     model = model.cpu()
     return model
 
-def compute_chain_objf(model, egs_file, den_fst_path, training_opts, feat_dim, 
-    minibatch_size="64", use_gpu=True, lr=0.0001, weight_decay=0.25, frame_shift=0, 
+def compute_chain_objf(model, egs_file, den_fst_path, training_opts,
+    minibatch_size="64", use_gpu=True, frame_shift=0, 
     left_context=0,
     right_context=0,
     frame_subsampling_factor=3):
     """Function to compute objective value from a minibatch, useful for diagnositcs"""
-    kaldi.InstantiateKaldiCuda()
     if training_opts is None:
         training_opts = kaldi.chain.CreateChainTrainingOptionsDefault()
     den_graph = kaldi.chain.LoadDenominatorGraph(den_fst_path, model.output_dim)
@@ -335,9 +334,10 @@ def compute_chain_objf(model, egs_file, den_fst_path, training_opts, feat_dim,
         mb, num_seq, _ = features.shape
         tot_weight += mb*num_seq
         acc_sum.add_(deriv[0]*mb*num_seq)
-    logging.info("Objective = {}".format(acc_sum/tot_weight))
+    objf = acc_sum/tot_weight
+    logging.info("Objective = {}".format(objf))
     model = model.cpu()
-    return model
+    return model, objf
 
 
 @dataclass
