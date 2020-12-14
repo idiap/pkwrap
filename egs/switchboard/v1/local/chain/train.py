@@ -11,6 +11,7 @@ description = """
 import os
 import sys
 import shutil
+import datetime
 import torch
 import pkwrap
 import argparse
@@ -292,7 +293,6 @@ def train():
                 num_archives_processed += num_jobs
                 continue
             assert num_jobs>0
-            logging.info("Running iter={} of {}".format(iter_no, num_iters))
             lr = pkwrap.script_utils.get_learning_rate(
                 iter_no, 
                 num_jobs, 
@@ -303,14 +303,18 @@ def train():
                 trainer_opts.lr_final,
                 schedule_type='exponential'
             )
-            logging.info("lr={}".format(lr))
             diagnostic_job_pool = None
             if iter_no % trainer_opts.diagnostics_interval == 0:
                 diagnostic_job_pool = submit_diagnostic_jobs(dirname, model_file, iter_no, egs_dir, cuda_cmd)
+            logging.info("{} Running iter={} of {} with {} jobs and lr={:.6f}".format(
+                datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                iter_no,
+                num_iters,
+                num_jobs,
+                lr
+            ))
             with ThreadPoolExecutor(max_workers=num_jobs) as executor:
                     job_pool = []
-                    sys.stderr.write("Num jobs = {}\n".format(num_jobs))
-                    sys.stderr.flush()
                     for job_id in range(1, num_jobs+1):
                         frame_shift = num_archives_processed%frame_subsampling_factor
                         p = executor.submit(run_job,num_jobs, job_id, dirname, iter_no,
