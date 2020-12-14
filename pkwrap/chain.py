@@ -446,6 +446,7 @@ class ChainModel(nn.Module):
         )
         torch.save(new_model.state_dict(), chain_opts.new_model)
 
+    @torch.no_grad()
     def validate(self):
         kaldi.InstantiateKaldiCuda()
         chain_opts = self.chain_opts
@@ -461,20 +462,15 @@ class ChainModel(nn.Module):
                 chain_opts.leaky_hmm_coefficient, 
                 chain_opts.xent_regularize,
         ) 
-        with torch.no_grad():
-            compute_chain_objf(
-                model,
-                chain_opts.egs, 
-                den_fst_path, 
-                training_opts, 
-                chain_opts.feat_dim, 
-                minibatch_size="1:64",
-                left_context=chain_opts.context,
-                right_context=chain_opts.context,
-                lr=chain_opts.lr,
-                weight_decay=chain_opts.l2_regularize_factor,
-                frame_shift=chain_opts.frame_shift,
-            )
+        compute_chain_objf(
+            model,
+            chain_opts.egs, 
+            den_fst_path, 
+            training_opts, 
+            minibatch_size="1:64",
+            left_context=chain_opts.context,
+            right_context=chain_opts.context,
+        )
 
     @torch.no_grad()
     def merge(self):

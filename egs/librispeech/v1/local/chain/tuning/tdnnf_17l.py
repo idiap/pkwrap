@@ -2,12 +2,8 @@
 # Copyright (c) 2020 Idiap Research Institute, http://www.idiap.ch/
 #  Written by Srikanth Madikeri <srikanth.madikeri@idiap.ch>
 
-# TODO: (1) move implementation of TDNN and TDNNBatchnorm, test their outputs w.r.t the old implementation of TDNN
-#       this test will avoid testing the entire model
-# TODO: (2) create a model class
-
 """
-    This models is like model_1a but uses a pseudo-ivector sub-network
+    This models is like tdnn_1d in Kaldi
 """
 
 import logging
