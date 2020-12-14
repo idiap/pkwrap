@@ -231,9 +231,9 @@ def train():
             "--right-context", str(context),
             "--frame-subsampling-factor", str(frame_subsampling_factor),
             "--alignment-subsampling-factor", str(frame_subsampling_factor),
-            "--frames-per-iter", str(args.frames_per_iter),
-            "--frames-per-eg", str(args.chunk_width),
-            "--srand", str(args.srand),
+            "--frames-per-iter", str(trainer_opts.frames_per_iter),
+            "--frames-per-eg", str(trainer_opts.chunk_width),
+            "--srand", str(trainer_opts.srand),
             "--online-ivector-dir", trainer_opts.online_ivector_dir,
             train_set, dirname, lat_dir, egs_dir
         ])
