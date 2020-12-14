@@ -8,14 +8,14 @@ description = """
   It takes a config file, if none is provided the script will look at configs/default.
 """
 
+import os
+import sys
+import shutil
 import torch
 import pkwrap
 import argparse
 import subprocess
 import configparser
-import os
-import sys
-import shutil
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
 logging.basicConfig(level=logging.DEBUG, format='pkwrap %(levelname)s: %(message)s')
@@ -99,6 +99,8 @@ def train():
     chain_affix = exp_cfg["chain_affix"] if "chain_affix" in exp_cfg else ""
     chain_dir = os.path.join(exp, f"chain{chain_affix}")
     dirname = os.path.join(chain_dir, exp_cfg["dirname"])
+    if not os.path.exists(dirname):
+        os.makedirs(dirname)
     egs_dir = os.path.join(dirname, "egs")
     gmm_dir = exp_cfg["gmm_dir"]
     ali_dir = exp_cfg["ali_dir"]
@@ -110,7 +112,6 @@ def train():
     lang_chain = exp_cfg["lang_chain"] if "lang_chain" in exp_cfg else "lang_chain"
 
     l2_regularize = args.l2_regularize
-    graph_dir = exp_cfg["graph_dir"]
     
     model_opts = pkwrap.trainer.ModelOpts().load_from_config(exp_cfg)
     frame_subsampling_factor = model_opts.frame_subsampling_factor
@@ -129,7 +130,7 @@ def train():
             #           TODO: should use logging
             sys.stderr.write(e)
             sys.stderr.write("ERROR: copying lang failed")
-        logging.info(f"Created {new_lang} folder")
+        logging.info(f"Created {lang_chain} folder")
     # create lats
     if stage <= 1:
         logging.info("Create supervision lattices")
@@ -169,7 +170,7 @@ def train():
                 f"{ali_dir}",
                 f"{tree_dir}",
             ]
-            subprocess.run(cmd)
+            pkwrap.script_utils.run(cmd)
             subprocess.run(["touch", "{}/.done".format(tree_dir)])
     if not os.path.isdir(dirname):
         os.makedirs(dirname)
@@ -184,7 +185,7 @@ def train():
 #   create den.fst
     if stage <= 3:
         logging.info("Creating den.fst")
-        process_out = subprocess.run([
+        pkwrap.script_utils.run([
             "shutil/chain/make_den_fst.sh",
             "--cmd", f"{cpu_cmd}",
             tree_dir, 
@@ -209,7 +210,7 @@ def train():
         ])
 #   create or copy the egs folder
     context = None
-    if stage <= 4:
+    if stage <= 4 and not ("egs_dir" in exp_cfg and exp_cfg["egs_dir"]):
         logging.info("Creating egs")
         # first check the context
         process_out = subprocess.run([
@@ -222,22 +223,27 @@ def train():
             quit(process_out.returncode)
         with open(os.path.join(dirname, 'context')) as ipf:
             context = int(ipf.readline())
-        process_out = subprocess.run([
+        pkwrap.script_utils.run([
             "steps/chain/get_egs.sh",
-            "--cmd", cuda_cmd,
+            "--cmd", cpu_cmd,
             "--cmvn-opts", "--norm-means=false --norm-vars=false",
             "--left-context", str(context),
             "--right-context", str(context),
             "--frame-subsampling-factor", str(frame_subsampling_factor),
             "--alignment-subsampling-factor", str(frame_subsampling_factor),
-            "--frames-per-iter", str(args.frames_per_iter),
-            "--frames-per-eg", str(args.chunk_width),
-            "--srand", str(args.srand),
+            "--frames-per-iter", str(trainer_opts.frames_per_iter),
+            "--frames-per-eg", str(trainer_opts.chunk_width),
+            "--srand", str(trainer_opts.srand),
             "--online-ivector-dir", trainer_opts.online_ivector_dir,
             train_set, dirname, lat_dir, egs_dir
         ])
-        if process_out.returncode != 0:
-            quit(process_out.returncode)
+    elif "egs_dir" in exp_cfg:
+        egs_dir = exp_cfg["egs_dir"]
+        if not os.path.exists(os.path.join(dirname, 'context')):
+            shutil.copy(
+                os.path.join(egs_dir, 'info', 'left_context'), 
+                os.path.join(dirname, 'context')
+            )
     if context is None:
         with open(os.path.join(dirname, 'context')) as ipf:
             context = int(ipf.readline())
@@ -286,8 +292,7 @@ def train():
                 num_archives_processed += num_jobs
                 continue
             assert num_jobs>0
-            sys.stderr.write("Running iter={} of {}\n".format(iter_no, num_iters))
-            sys.stderr.flush()        
+            logging.info("Running iter={} of {}".format(iter_no, num_iters))
             lr = pkwrap.script_utils.get_learning_rate(
                 iter_no, 
                 num_jobs, 
@@ -298,7 +303,7 @@ def train():
                 trainer_opts.lr_final,
                 schedule_type='exponential'
             )
-            logging.info("lr={}\n".format(lr))
+            logging.info("lr={}".format(lr))
             diagnostic_job_pool = None
             if iter_no % trainer_opts.diagnostics_interval == 0:
                 diagnostic_job_pool = submit_diagnostic_jobs(dirname, model_file, iter_no, egs_dir, cuda_cmd)
@@ -311,39 +316,73 @@ def train():
                         p = executor.submit(run_job,num_jobs, job_id, dirname, iter_no,
                                         model_file, lr, frame_shift, 
                                         egs_dir, num_archives, num_archives_processed,
-                                        "128,64", cuda_cmd)
+                                        exp_cfg["minibatch_size"], cuda_cmd)
                         num_archives_processed += 1
                         job_pool.append(p)
                     for p in as_completed(job_pool):
                         if p.result() != 0:
                             quit(p.result())
-            model_list = [os.path.join(dirname,  "{}.{}.pt".format(iter_no, job_id)) for job_id in range(1, num_jobs+1)]
-            process_out = subprocess.run([
-                *cuda_cmd.split(),
-                "{}/log/merge.{}.log".format(dirname, iter_no+1),
-                model_file,
-                "--dir", dirname,
-                "--mode", "merge",
-                "--new-model", os.path.join(dirname, "{}.pt".format(iter_no+1)),
-                ",".join(model_list)])
-            if process_out.returncode != 0:
-                quit(process_out.returncode)
-            else:
-                # if iter is greater than 20, we start append the previous models
-                # to delete them: 
-                if iter_no >= 20:
-                    model_list.append(os.path.join(dirname,
-                        "{}.pt".format(iter_no-10)))
+            if num_jobs>1:
+                model_list = [os.path.join(dirname,  "{}.{}.pt".format(iter_no, job_id)) for job_id in range(1, num_jobs+1)]
+                process_out = subprocess.run([
+                    *cuda_cmd.split(),
+                    "{}/log/merge.{}.log".format(dirname, iter_no+1),
+                    model_file,
+                    "--dir", dirname,
+                    "--mode", "merge",
+                    "--new-model", os.path.join(dirname, "{}.pt".format(iter_no+1)),
+                    ",".join(model_list)])
                 for mdl in model_list:
-                    subprocess.run(["rm", mdl])
-            if process_out.returncode != 0:
-                quit(process_out.returncode)
-        src = os.path.join(dirname, "{}.pt".format(num_iters-1))
-        dst = os.path.join(dirname, "final.pt")
-        subprocess.run(['ln', '-r', '-s', src, dst])
+                    pkwrap.script_utils.run(["rm", mdl])
+            else:
+                pkwrap.script_utils.run([
+                    "mv",
+                    os.path.join(dirname, "{}.1.pt".format(iter_no)),
+                    os.path.join(dirname, "{}.pt".format(iter_no+1)),
+                ])
+            # remove old model
+            if iter_no >= 20:
+                mdl = os.path.join(dirname, "{}.pt".format(iter_no-10))
+                pkwrap.script_utils.run(["rm", mdl])
+    # do final model combination
+    model_list = [
+            os.path.join(dirname, f"{i}.pt")
+            for i in range(num_iters, num_iters-10, -1)
+    ]
+    logging.info("Final model combination...")
+    diagnostic_name = 'valid'
+    egs_file = os.path.join(egs_dir, '{}_diagnostic.cegs'.format(diagnostic_name))
+    process_out = subprocess.run([
+        *cuda_cmd.split(),
+        "{}/log/combine.log".format(dirname),
+        model_file,
+        "--dir", dirname,
+        "--mode", "final_combination",
+        "--new-model", os.path.join(dirname, "final.pt"),
+        "--egs", "ark:{}".format(egs_file),
+        ",".join(model_list)
+    ])
 
+    graph_dir = ""
+    decode_params = cfg_parse[args.test_config]
+    if "graph_dir" in exp_cfg:
+        graph_dir = exp_cfg["graph_dir"]
+    if "graph_dir" in decode_params:
+        graph_dir = decode_params["graph_dir"]
+    if not graph_dir:
+        graph_dir = os.path.join(dirname, 'graph')
     if stage <= 7:
-        decode_params = cfg_parse[args.test_config]
+        if not os.path.isfile(os.path.join(graph_dir, 'HCLG.fst')):
+            logging.info("Making graph with {}".format(exp_cfg["lang"]))
+            pkwrap.script_utils.run([
+                'utils/mkgraph.sh',
+                '--self-loop-scale', '1.0',
+                exp_cfg["lang"],
+                tree_dir,
+                graph_dir
+            ])
+
+    if stage <= 8:
         final_iter = num_iters-1
         data_dir = decode_params["test_set"]
         data_name = os.path.basename(data_dir)
@@ -351,9 +390,6 @@ def train():
         decode_affix = decode_params["suffix"] if "suffix" in decode_params else ""
         decode_suff= "_iter{}{}".format(decode_iter, decode_affix)
         out_dir = os.path.join(dirname, f"decode_{data_name}{decode_suff}")
-        graph_dir = exp_cfg["graph_dir"]
-        if "graph_dir" in decode_params:
-            graph_dir = decode_params["graph_dir"]
         graph = "{}/HCLG.fst".format(graph_dir)
         if "num_jobs" in decode_params:
             num_jobs = pkwrap.utils.split_data(
@@ -376,7 +412,7 @@ def train():
             "--dir", dirname,
             "--mode", "decode",
             *ivector_opts,
-            "--decode-feat", "scp:{}/split{}/JOB/feats.scp".format(data_dir, num_jobs),
+            "--decode-feats", "scp:{}/split{}/JOB/feats.scp".format(data_dir, num_jobs),
             os.path.join(dirname, "{}.pt".format(decode_iter)),
             "|",
             "shutil/decode/latgen-faster-mapped.sh",
@@ -399,7 +435,7 @@ def train():
                     os.path.join(out_dir, '../final.mdl'),
             ])
         pkwrap.script_utils.run([
-            "local/score_sclite.sh",
+            "local/score.sh",
             "--cmd", cpu_cmd,
             data_dir,
             graph_dir,

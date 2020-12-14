@@ -1,0 +1,34 @@
+[cmd]
+cpu_cmd = queue.pl -l q1d -V 
+cuda_cmd = queue.pl -l q_gpu -V
+
+[exp]
+# 8 layer tdnnf model. NOTE: exp/chain${chain_affix} will be prepended automatically
+dirname = tdnnf_17l
+train_set = data/train_960_cleaned_sp_hires
+lores_train_set = data/train_960_cleaned_sp
+gmm_dir = exp/tri6b_cleaned
+ali_dir = exp/tri6b_cleaned_ali_train_960_cleaned_sp
+tree_dir = exp/chain/tree_train_960_cleaned_sp
+tree_size = 7000
+tree_context_opts = "--context-width=2 --central-position=1"
+lat_dir = exp/tri6b_train_960_cleaned_sp_lats
+model_file = local/chain/tuning/tdnnf_17l.py
+lang = data/lang_nosp_test_tgsmall
+lang_chain = data/lang_chain
+# trained from kaldi
+graph_dir = exp/chain/tdnnf_17l/graph_nosp_test_tgsmall
+
+# train params
+num_epochs = 4
+num_jobs_initial = 3
+num_jobs_final = 16
+frames_per_iter = 2500000
+lr_initial = 0.00015
+lr_final = 0.000015
+diagnostics_interval = 10
+minibatch_size = 64
+
+[test]
+test_set = data/dev_clean_hires
+suffix = 

@@ -54,9 +54,9 @@ class KaldiChainObjfFunction(torch.autograd.Function):
             The derivatives are stored in the context and used by the backward()
             function.
         """
-        objf = torch.zeros(1)
-        l2_term = torch.zeros(1)
-        weight = torch.zeros(1)
+        objf = torch.zeros(1, requires_grad=False)
+        l2_term = torch.zeros(1, requires_grad=False)
+        weight = torch.zeros(1, requires_grad=False)
         mb, T, D = nnet_output_tensor.shape
         # Kaldi expects the outputs to be groups by time frames. So
         # we need to permut the output
@@ -79,15 +79,16 @@ class KaldiChainObjfFunction(torch.autograd.Function):
         xent_deriv = xent_deriv.reshape(T, mb, D).permute(1, 0, 2).contiguous()
 
         ctx.save_for_backward(nnet_deriv, xent_deriv)
-        xent_objf = (xent_out_tensor*xent_deriv).sum()/(mb*T)
-        objf[0] = objf[0]/weight[0]
-        sys.stderr.write(
-            "objf={}, l2={}, xent_objf={}\n".format(
-                objf[0],
-                l2_term[0]/weight[0],
-                xent_objf,
+        with torch.no_grad():
+            xent_objf = (xent_out_tensor*xent_deriv).sum()/(mb*T)
+            objf[0] = objf[0]/weight[0]
+            sys.stderr.write(
+                "objf={}, l2={}, xent_objf={}\n".format(
+                    objf[0],
+                    l2_term[0]/weight[0],
+                    xent_objf,
+                )
             )
-        )
         return objf
 
     @staticmethod
@@ -146,7 +147,7 @@ class OnlineNaturalGradient(torch.autograd.Function):
             mb_T = mb*T
         else:
             mb_T, D = input.shape
-        input_temp = torch.zeros(mb_T, D+1, device=input.device).contiguous()
+        input_temp = torch.zeros(mb_T, D+1, device=input.device, requires_grad=False).contiguous()
         input_temp[:,-1] = 1.0
         input_temp[:,:-1].copy_(input.reshape(mb_T, D))
         grad_weight = grad_bias = None
@@ -308,13 +309,12 @@ def train_lfmmi_one_iter(model, egs_file, den_fst_path, training_opts, feat_dim,
     model = model.cpu()
     return model
 
-def compute_chain_objf(model, egs_file, den_fst_path, training_opts, feat_dim, 
-    minibatch_size="64", use_gpu=True, lr=0.0001, weight_decay=0.25, frame_shift=0, 
+def compute_chain_objf(model, egs_file, den_fst_path, training_opts,
+    minibatch_size="64", use_gpu=True, frame_shift=0, 
     left_context=0,
     right_context=0,
     frame_subsampling_factor=3):
     """Function to compute objective value from a minibatch, useful for diagnositcs"""
-    kaldi.InstantiateKaldiCuda()
     if training_opts is None:
         training_opts = kaldi.chain.CreateChainTrainingOptionsDefault()
     den_graph = kaldi.chain.LoadDenominatorGraph(den_fst_path, model.output_dim)
@@ -334,9 +334,10 @@ def compute_chain_objf(model, egs_file, den_fst_path, training_opts, feat_dim,
         mb, num_seq, _ = features.shape
         tot_weight += mb*num_seq
         acc_sum.add_(deriv[0]*mb*num_seq)
-    logging.info("Objective = {}".format(acc_sum/tot_weight))
+    objf = acc_sum/tot_weight
+    logging.info("Objective = {}".format(objf))
     model = model.cpu()
-    return model
+    return model, objf
 
 
 @dataclass
@@ -407,6 +408,8 @@ class ChainModel(nn.Module):
             self.train()
         elif self.chain_opts.mode in ['decode', 'infer']:
             self.infer()
+        elif self.chain_opts.mode == 'final_combination':
+            self.combine_final_model()
 
     def init(self):
         model = self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
@@ -444,6 +447,7 @@ class ChainModel(nn.Module):
         torch.save(new_model.state_dict(), chain_opts.new_model)
 
     def validate(self):
+        kaldi.InstantiateKaldiCuda()
         chain_opts = self.chain_opts
         den_fst_path = os.path.join(chain_opts.dir, "den.fst")
 
@@ -472,49 +476,55 @@ class ChainModel(nn.Module):
                 frame_shift=chain_opts.frame_shift,
             )
 
+    @torch.no_grad()
     def merge(self):
-        with torch.no_grad():
-            chain_opts = self.chain_opts
-            base_models = chain_opts.base_model.split(',')
-            assert len(base_models)>0
-            model0 = self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
-            model0.load_state_dict(torch.load(base_models[0]))
-            model_acc = dict(model0.named_parameters())
-            for mdl_name in base_models[1:]:
-                this_mdl = self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
-                this_mdl.load_state_dict(torch.load(mdl_name))
-                for name, params in this_mdl.named_parameters():
-                    model_acc[name].data.add_(params.data)
-            weight = 1.0/len(base_models)
-            for name in model_acc:
-                model_acc[name].data.mul_(weight)
-            torch.save(model0.state_dict(), chain_opts.new_model)
+        chain_opts = self.chain_opts
+        base_models = chain_opts.base_model.split(',')
+        assert len(base_models)>0
+        model0 = self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
+        model0.load_state_dict(torch.load(base_models[0]))
+        model_acc = dict(model0.named_parameters())
+        for mdl_name in base_models[1:]:
+            this_mdl = self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
+            this_mdl.load_state_dict(torch.load(mdl_name))
+            for name, params in this_mdl.named_parameters():
+                model_acc[name].data.add_(params.data)
+        weight = 1.0/len(base_models)
+        for name in model_acc:
+            model_acc[name].data.mul_(weight)
+        torch.save(model0.state_dict(), chain_opts.new_model)
 
+    @torch.no_grad()
     def infer(self):
-        with torch.no_grad():
-            chain_opts = self.chain_opts
-            model = self.Net(chain_opts.feat_dim, chain_opts.output_dim)
-            base_model = chain_opts.base_model
-            try:
-                model.load_state_dict(torch.load(base_model))
-            except Exception as e:
-                logging.error(e)
-                logging.error("Cannot load model {}".format(base_model))
-                quit(1)
-            # TODO(srikanth): make sure context is a member of chain_opts
-            context = chain_opts.context
-            model.eval()
-            writer_spec = "ark,t:{}".format(chain_opts.decode_output)
-            writer = script_utils.feat_writer(writer_spec)
-            for key, feats in script_utils.feat_reader_gen(chain_opts.decode_feats):
-                feats_with_context = matrix.add_context(feats, context, context).unsqueeze(0)
-                post, _ = model(feats_with_context)
-                post = post.squeeze(0)
-                writer.Write(key, kaldi.matrix.TensorToKaldiMatrix(post))
-                logging.info("Wrote {}\n ".format(key))
-            writer.Close()
+        chain_opts = self.chain_opts
+        model = self.Net(chain_opts.feat_dim, chain_opts.output_dim)
+        base_model = chain_opts.base_model
+        try:
+            model.load_state_dict(torch.load(base_model))
+        except Exception as e:
+            logging.error(e)
+            logging.error("Cannot load model {}".format(base_model))
+            quit(1)
+        # TODO(srikanth): make sure context is a member of chain_opts
+        context = chain_opts.context
+        model.eval()
+        writer_spec = "ark,t:{}".format(chain_opts.decode_output)
+        writer = script_utils.feat_writer(writer_spec)
+        for key, feats in script_utils.feat_reader_gen(chain_opts.decode_feats):
+            feats_with_context = matrix.add_context(feats, context, context).unsqueeze(0)
+            post, _ = model(feats_with_context)
+            post = post.squeeze(0)
+            writer.Write(key, kaldi.matrix.TensorToKaldiMatrix(post))
+            logging.info("Wrote {}\n ".format(key))
+        writer.Close()
 
     def context(self):
+        """Find context by brute force
+
+        WARNING: it only works for frame_subsampling_factor=3
+        """
+
+        logging.warning("context function called. it only works for frame_subsampling_factor=3")
         visited = Counter()
         with torch.no_grad():
           feat_dim = 40
@@ -523,6 +533,7 @@ class ChainModel(nn.Module):
           chunk_sizes = [(150,50), (50, 17), (100, 34), (10, 4), (20, 7)]
           frame_shift = 0
           left_context = 0
+          logging.info("Searching for context...")
           while True:
               right_context = left_context
               found = []
@@ -532,7 +543,7 @@ class ChainModel(nn.Module):
                   try:
                       test_feats = torch.zeros(32, feat_len, feat_dim)
                       y = model(test_feats)
-                  except:
+                  except Exception as e:
                       visited[left_context] += 1
                       if visited[left_context] > 10:
                           break
@@ -540,6 +551,7 @@ class ChainModel(nn.Module):
                       found.append(True)
                   else:
                       found.append(False)
+                      break
               if all(found):
                       self.save_context(left_context)
                       return
@@ -602,3 +614,65 @@ class ChainModel(nn.Module):
         args = parser.parse_args()
         return args
 
+    @torch.no_grad()
+    def combine_final_model(self):
+        """Implements Kaldi-style model ensembling"""
+        kaldi.InstantiateKaldiCuda()
+        chain_opts = self.chain_opts
+        den_fst_path = os.path.join(chain_opts.dir, "den.fst")
+        base_models = chain_opts.base_model.split(',')
+        assert len(base_models)>0
+        training_opts = kaldi.chain.CreateChainTrainingOptions(
+                chain_opts.l2_regularize, 
+                chain_opts.out_of_range_regularize, 
+                chain_opts.leaky_hmm_coefficient, 
+                chain_opts.xent_regularize,
+        ) 
+
+        moving_average = self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
+        best_mdl =  self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
+        moving_average.load_state_dict(torch.load(base_models[0]))
+        moving_average.cuda()
+        best_mdl = moving_average
+        compute_objf = lambda mdl: compute_chain_objf(
+            mdl,
+            chain_opts.egs, 
+            den_fst_path, 
+            training_opts,
+            minibatch_size="1:64", # TODO: this should come from a config
+            left_context=chain_opts.context,
+            right_context=chain_opts.context,
+            frame_shift=chain_opts.frame_shift,
+        )
+
+        _, init_objf = compute_objf(moving_average)
+        best_objf = init_objf
+
+        model_acc = dict(moving_average.named_parameters())
+        num_accumulated = torch.Tensor([1.0]).reshape(1).cuda()
+        best_num_to_combine = 1
+        for mdl_name in base_models[1:]:
+            this_mdl = self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
+            logging.info("Combining model {}".format(mdl_name))
+            this_mdl.load_state_dict(torch.load(mdl_name))
+            this_mdl = this_mdl.cuda()
+            # TODO(srikanth): check why is this even necessary
+            moving_average.cuda()
+            num_accumulated += 1.
+            for name, params in this_mdl.named_parameters():
+                model_acc[name].data.mul_((num_accumulated-1.)/(num_accumulated))
+                model_acc[name].data.add_(params.data.mul_(1./num_accumulated))
+            _, this_objf = compute_objf(moving_average)
+            if this_objf > best_objf:
+                best_objf = this_objf
+                best_mdl = moving_average
+                best_num_to_combine = num_accumulated.clone().detach()
+                logging.info("Found best model")
+            else:
+                logging.info("Won't update best model")
+                        
+        logging.info("Combined {} models".format(best_num_to_combine.cpu()))
+        logging.info("Initial objf = {}, Final objf = {}".format(init_objf, best_objf))
+        best_mdl.cpu()
+        torch.save(best_mdl.state_dict(), chain_opts.new_model)
+        return self

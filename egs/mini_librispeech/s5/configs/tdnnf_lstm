@@ -1,0 +1,30 @@
+[cmd]
+cpu_cmd = queue.pl -l q1d -V
+cuda_cmd = queue.pl -l q_gpu -V
+
+[exp]
+dirname = tdnnf_lstm
+train_set = data/train_clean_5_sp_hires
+lores_train_set = data/train_clean_5_sp
+gmm_dir = exp/tri3b
+ali_dir = exp/tri3b_ali_train_clean_5_sp
+tree_dir = exp/chain/tree_sp
+tree_size = 3500
+tree_context_opts = "--context-width=2 --central-position=1"
+lat_dir = exp/tri3b_train_clean_5_sp_lats
+model_file = local/chain/tuning/tdnnf_lstm.py
+lang = data/lang_test_tgsmall
+lang_chain = data/lang_chain
+
+# train params
+num_epochs = 6
+num_jobs_initial = 2
+num_jobs_final = 6
+lr_initial = 0.001
+lr_final = 0.0001
+diagnostics_interval = 5
+
+[test]
+test_set = data/dev_clean_2_hires
+suffix = 
+

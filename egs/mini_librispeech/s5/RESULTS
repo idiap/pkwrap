@@ -4,3 +4,6 @@
 
 # parallelizations tests
 %WER 19.36 [ 4009 / 20138, 365 ins, 600 del, 3044 sub ] # 1d, 4 epochs
+
+# TDNNF
+%WER 20.85 [ 4198 / 20138, 429 ins, 866 del, 2903 sub ] # deafult config
