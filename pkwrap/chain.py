@@ -61,8 +61,8 @@ class KaldiChainObjfFunction(torch.autograd.Function):
         # Kaldi expects the outputs to be groups by time frames. So
         # we need to permut the output
         nnet_output_copy = nnet_output_tensor.permute(1, 0, 2).reshape(-1, D).contiguous()
-        nnet_deriv = torch.zeros_like(nnet_output_copy)
-        xent_deriv = torch.zeros_like(nnet_output_copy)
+        nnet_deriv = torch.zeros_like(nnet_output_copy).contiguous()
+        xent_deriv = torch.zeros_like(nnet_output_copy).contiguous()
         kaldi.chain.ComputeChainObjfAndDeriv(
             opts,
             den_graph,
@@ -75,8 +75,8 @@ class KaldiChainObjfFunction(torch.autograd.Function):
             xent_deriv,
         )
         # return the derivates in the original order
-        nnet_deriv = nnet_deriv.reshape(T, mb, D).permute(1, 0, 2)
-        xent_deriv = xent_deriv.reshape(T, mb, D).permute(1, 0, 2)
+        nnet_deriv = nnet_deriv.reshape(T, mb, D).permute(1, 0, 2).contiguous()
+        xent_deriv = xent_deriv.reshape(T, mb, D).permute(1, 0, 2).contiguous()
 
         ctx.save_for_backward(nnet_deriv, xent_deriv)
         xent_objf = (xent_out_tensor*xent_deriv).sum()/(mb*T)

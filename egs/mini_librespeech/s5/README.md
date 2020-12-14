@@ -48,5 +48,5 @@ Script used for (6), the model file, gives a good idea of how to use pkwrap to t
 To run one of the scripts, say 1b, simply run
 
 ```
-local/chain/tuning/run_tdnn.py local/chain/tuning/models/1b.py
+local/chain/tuning/run_tdnn.py --model-file local/chain/tuning/models/1b.py
 ```
