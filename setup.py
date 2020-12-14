@@ -47,10 +47,11 @@ EXTRA_COMPILE_ARGS = {
             '-w', # potentially dangerous, but less annoying
           ]
     }
-LIBRARIES = ["kaldi-base", "kaldi-matrix", "kaldi-util", "kaldi-cudamatrix",
-             "kaldi-decoder", "kaldi-lat", "kaldi-gmm", "kaldi-hmm", "kaldi-tree",
-             "kaldi-transform", "kaldi-chain", "kaldi-fstext", "kaldi-nnet3",
-             "mkl_intel_lp64", "mkl_core", "mkl_sequential"]
+LIBRARIES = [
+    "kaldi-base", "kaldi-matrix", "kaldi-util", "kaldi-cudamatrix",
+    "kaldi-decoder", "kaldi-lat", "kaldi-gmm", "kaldi-hmm", "kaldi-tree",
+    "kaldi-transform", "kaldi-chain", "kaldi-fstext", "kaldi-nnet3"
+]
 LIBRARY_DIRS = [KALDI_LIB_DIR]
 MKL_ROOT = os.getenv('MKL_ROOT')
 MKL_LIB_DIR = ''
@@ -58,12 +59,13 @@ if MKL_ROOT:
     MKL_LIB_DIR = os.path.join(MKL_ROOT, 'lib')
     LIBRARY_DIRS.append(MKL_LIB_DIR)
     EXTRA_COMPILE_ARGS['cxx'] += ['-I{}/include'.format(MKL_ROOT)]
+    LIBRARIES += ["mkl_intel_lp64", "mkl_core", "mkl_sequential"]
 
 AUTHORS = ['Srikanth Madikeri']
 AUTHOR_STR = ','.join(AUTHORS)
 
 LICENSE = 'Apache 2.0'
-VERSION = '0.2.16'
+VERSION = '0.2.18'
 
 setup(name=PACKAGE_NAME,
       version=VERSION,

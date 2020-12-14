@@ -58,7 +58,7 @@ def train_lfmmi_one_iter(model, egs_file, den_fst_path, training_opts, feat_dim,
         model = model.cuda()
     optimizer = optim.SGD(model.parameters(), lr=lr, weight_decay=weight_decay)
     acc_sum = torch.tensor(0., requires_grad=False)
-    for mb_id, merged_egs in enumerate(pkwrap.chain.prepare_minibatch(egs_file, minibatch_size, 0)):
+    for mb_id, merged_egs in enumerate(pkwrap.chain.prepare_minibatch(egs_file, minibatch_size)):
         features = pkwrap.kaldi.chain.GetFeaturesFromEgs(merged_egs)
         features = features[:,1+frame_shift:1+140+25+frame_shift,:]
         features = features.cuda()
