@@ -66,7 +66,7 @@ kaldi::CuSubMatrix<kaldi::BaseFloat> TensorToKaldiCuSubMatrix(torch::Tensor &t) 
         }
     }
     else {
-        std::cout << "ERROR: Cannot convert to CuSubMatrix because GPU is not enable" << std::endl;
+        std::cout << "ERROR: Cannot convert to CuSubMatrix because GPU is not enabled" << std::endl;
         exit(1);
     }
     // TODO: handle the else condition

@@ -244,7 +244,7 @@ if __name__ == '__main__':
         opf.write('{}'.format(num_jobs))
         opf.close()
         subprocess.run(["shutil/decode/score.sh",
-        "--cmd", "queue.pl -l q1d -l io_big -V",
+        "--cmd", train_cmd,
         decode_dir,
         graph_dir,
         out_dir
