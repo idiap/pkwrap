@@ -30,6 +30,7 @@ class TrainerOpts:
     diagnostics_interval: int = 10
     online_ivector_dir: str =  ''
     minibatch_size:str = "32"
+    srand: int = 1
     
     def load_from_config(self, cfg):
         for key, value in cfg.items():
