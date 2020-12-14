@@ -19,6 +19,6 @@ local/chain/train.py
 
 ### RESULTS
 
-| Model | config | dev-clean | dev-others | test-clean | test-others |
-| ---------- | ---------- | ---------- |  ---------- |  ---------- |  ---------- |
-| TDNNF 17 layers with dropout | ``tdnnf_17l``| 6.8 | - | - | - |
+| Model | config | dev-clean | 
+| ---------- | ---------- | ---------- | 
+| TDNNF 17 layers with dropout | ``tdnnf_17l``| 6.8 |
