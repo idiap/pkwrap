@@ -455,6 +455,7 @@ class ChainModel(nn.Module):
 #           load model
         model = self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
         model.load_state_dict(torch.load(chain_opts.base_model))
+        model.eval()
 
         training_opts = kaldi.chain.CreateChainTrainingOptions(
                 chain_opts.l2_regularize, 
