@@ -191,10 +191,10 @@ def constrain_orthonormal(M, scale, update_speed=0.125):
         ratio = trace_P_Pt/trace_P
         scale = ratio.sqrt()
         ratio = ratio * d / trace_P
-        # if ratio > 1.1:
-        #     update_speed *= 0.25
-        # elif ratio > 1.02:
-        #     update_speed *= 0.5
+        if ratio > 1.1:
+            update_speed *= 0.25
+        elif ratio > 1.02:
+            update_speed *= 0.5
     scale2 = scale**2
     P[range(d), range(d)] -= scale2
     M.data.addmm_(P, M, alpha=-4*update_speed/scale2)
@@ -254,16 +254,7 @@ class TDNNF(nn.Module):
 
     def forward(self, input):
         mb, T, D = input.shape
-        l = self.context_len
-        N = T-l+1
-        padded_input = torch.zeros(mb, N, D*self.context_len, device=input.device)
-        start_d = 0
-        for i in range(l):
-            end_d = start_d + D
-            padded_input[:,:,start_d:end_d] = input[:,i:i+N,:]
-            start_d = end_d
-        if self.subsampling_factor>1:
-            padded_input = padded_input[:,::self.subsampling_factor,:]
+        padded_input = input.reshape(mb, -1).unfold(1, D*self.context_len, D*self.subsampling_factor).contiguous()
         x = self.linearB(padded_input)
         x = self.linearA(x)
         if self.use_bypass:
