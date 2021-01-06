@@ -45,7 +45,7 @@ class NaturalAffineTransform(nn.Module):
             feat_dim,
             out_dim,
             bias=True,
-            ngstate=NGState(),
+            ngstate=None,
         ):
         """Initialize NaturalGradientAffineTransform layer
 
@@ -66,6 +66,8 @@ class NaturalAffineTransform(nn.Module):
         super(NaturalAffineTransform, self).__init__()
         self.feat_dim = feat_dim
         self.out_dim = out_dim
+        if ngstate is None:
+            ngstate = NGState()
         self.preconditioner_in = get_preconditioner_from_ngstate(ngstate)
         self.preconditioner_out = get_preconditioner_from_ngstate(ngstate)
         self.weight = nn.Parameter(torch.Tensor(out_dim, feat_dim))
@@ -173,30 +175,29 @@ class TDNNBatchNorm(nn.Module):
         x = x.permute(0, 2, 1)
         return x
 
+@torch.no_grad()
 def constrain_orthonormal(M, scale, update_speed=0.125):
-    with torch.no_grad():
-        rows, cols = M.shape
-        transpose = False
-        if rows < cols:
-            M = M.T
-            transpose = True
-        # we don't update it. we just compute the gradient
-        P = M.mm(M.t())
+    rows, cols = M.shape
+    d = rows
+    if rows < cols:
+        M = M.T
+        d = cols
+    # we don't update it. we just compute the gradient
+    P = M.mm(M.T)
 
-        if scale < 0.:
-            trace_P_Pt = P.mm(P.T).trace()
-            trace_P = P.trace()
-            ratio = trace_P_Pt/trace_P
-            scale = ratio.sqrt()
-            ratio = ratio * P.shape[0] / trace_P
-            if ratio > 1.02:
-                update_speed *= 0.5
-                if ratio > 1.1:
-                    update_speed *= 0.5
-        d = P.shape[0]
-        scale2 = scale**2
-        P[range(d), range(d)] -= scale2
-        M.data.add_(-4*update_speed/scale2, P.mm(M))
+    if scale < 0.:
+        trace_P_Pt = P.pow(2.0).sum()
+        trace_P = P.trace()
+        ratio = trace_P_Pt/trace_P
+        scale = ratio.sqrt()
+        ratio = ratio * d / trace_P
+        # if ratio > 1.1:
+        #     update_speed *= 0.25
+        # elif ratio > 1.02:
+        #     update_speed *= 0.5
+    scale2 = scale**2
+    P[range(d), range(d)] -= scale2
+    M.data.addmm_(P, M, alpha=-4*update_speed/scale2)
 
 class OrthonormalLinear(NaturalAffineTransform):
     def __init__(self, feat_dim, out_dim, bias=True, scale=0.0,
