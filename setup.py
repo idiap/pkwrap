@@ -29,7 +29,7 @@ EXTENSION_NAME = '_pkwrap'
 SRC_FILES = ['src/pkwrap-main.cc',
              'src/matrix.cc',
              'src/chain.cc',
-             'src/nnet3.cc'
+             'src/nnet3.cc',
             ]
 EXTRA_COMPILE_ARGS = {
     'cxx':[ '-I{}/src'.format(KALDI_ROOT),
@@ -65,7 +65,7 @@ AUTHORS = ['Srikanth Madikeri']
 AUTHOR_STR = ','.join(AUTHORS)
 
 LICENSE = 'Apache 2.0'
-VERSION = '0.2.18'
+VERSION = '0.2.19'
 
 setup(name=PACKAGE_NAME,
       version=VERSION,
