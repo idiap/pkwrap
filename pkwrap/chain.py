@@ -134,6 +134,7 @@ class OnlineNaturalGradient(torch.autograd.Function):
         return output
 
     @staticmethod
+    @torch.no_grad()
     def backward(ctx, grad_output):
         """Backward pass for NG-SGD layer
 
@@ -300,7 +301,7 @@ def train_lfmmi_one_iter(model, egs_file, den_fst_path, training_opts, feat_dim,
         deriv = criterion(training_opts, den_graph, sup, output, xent_output)
         acc_sum.add_(deriv[0])
         if mb_id>0 and mb_id%print_interval==0:
-            logging.info("Overall objf={}\n".format(acc_sum/print_interval))
+            logging.info("Overall objf={}".format(acc_sum/print_interval))
             acc_sum.zero_()
         optimizer.zero_grad()
         deriv.backward()
@@ -314,7 +315,17 @@ def compute_chain_objf(model, egs_file, den_fst_path, training_opts,
     left_context=0,
     right_context=0,
     frame_subsampling_factor=3):
-    """Function to compute objective value from a minibatch, useful for diagnositcs"""
+    """Function to compute objective value from a minibatch, useful for diagnositcs.
+    
+    Args:
+        model: the model to run validation on 
+        egs_file: egs containing the validation set
+        den_fst_path: path to den.fst
+        training_opts: ChainTrainingOpts object
+        left_context: left context of the model
+        right_context: right context of the model
+        frame_subsampling_factor: subsampling to be used on the output
+    """
     if training_opts is None:
         training_opts = kaldi.chain.CreateChainTrainingOptionsDefault()
     den_graph = kaldi.chain.LoadDenominatorGraph(den_fst_path, model.output_dim)
@@ -379,6 +390,12 @@ class ChainModelOpts(TrainerOpts, DecodeOpts):
 
 class ChainModel(nn.Module):
     def __init__(self, model_cls, cmd_line=False, **kwargs):
+        """initialize a ChainModel
+
+        The idea behind this class is to split the various functionalities
+        across methods so that we can reuse whataver is required and reimplement
+        only that which is necessary
+        """
         super(ChainModel, self).__init__()
         assert model_cls is not None
         if cmd_line:
@@ -393,6 +410,16 @@ class ChainModel(nn.Module):
         self.call_by_mode()
 
     def call_by_mode(self):
+        """A that calls appropriate method based on the value of chain_opts.mode
+        
+        So far the modes supported are:
+            - init
+            - context
+            - merge
+            - train (or training)
+            - validate (or diagnostic)
+            - infer (or decode)
+        """
         self.reset_dims()
         if self.chain_opts.mode != 'context':
             self.load_context()
@@ -412,10 +439,19 @@ class ChainModel(nn.Module):
             self.combine_final_model()
 
     def init(self):
+        """Initialize the model and save it in chain_opts.base_model"""
         model = self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
         torch.save(model.state_dict(), self.chain_opts.base_model)
 
     def train(self):
+        """Run one iteration of LF-MMI training
+
+        This is called by 
+        >>> self.train() 
+
+        It will probably be renamed as self.fit() since this seems to be
+        the standard way other libraries call the training function.
+        """
         chain_opts = self.chain_opts
         lr = chain_opts.lr
         den_fst_path = os.path.join(chain_opts.dir, "den.fst")
@@ -512,7 +548,7 @@ class ChainModel(nn.Module):
             post, _ = model(feats_with_context)
             post = post.squeeze(0)
             writer.Write(key, kaldi.matrix.TensorToKaldiMatrix(post))
-            logging.info("Wrote {}\n ".format(key))
+            logging.info("Wrote {}".format(key))
         writer.Close()
 
     def context(self):
