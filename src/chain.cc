@@ -58,6 +58,11 @@ kaldi::chain::Supervision ReadSupervisionFromFile(std::string &file_name) {
     return sup;
 }
 
+void PrintSupervisionInfoE2E(const kaldi::chain::Supervision &supervision) {
+    std::cout << "Number of sequences: " << supervision.num_sequences << "\n";
+    std::cout << "Number of frames per sequence " << supervision.frames_per_sequence << "\n";
+}
+
 // TODO, DONE: 6/8
 // 7. Check derivative size
 /* // 8. Check xent_deriv_size */
@@ -401,6 +406,18 @@ int32 ExampleMergingConfig::MinibatchSize(int32 size_of_eg,
 }
 
 torch::Tensor GetFeaturesFromEgs(const kaldi::nnet3::NnetChainExample &egs) {
+    auto mat = egs.inputs[0].features.GetFullMatrix();
+    int32 mb_size = egs.outputs[0].supervision.num_sequences;
+    int32 feat_dim = mat.NumCols();
+    return KaldiMatrixToTensor(mat).clone().detach().reshape({mb_size, -1, feat_dim});
+}
+
+torch::Tensor GetFeaturesFromCompressedEgs(kaldi::nnet3::NnetChainExample &egs) {
+    if(egs.inputs.size() != 1) {
+        std::cout << "We do not support the egs to have more than 1 input features" << std::endl;
+        exit(1);
+    }
+    egs.inputs[0].features.Uncompress();
     auto mat = egs.inputs[0].features.GetFullMatrix();
     int32 mb_size = egs.outputs[0].supervision.num_sequences;
     int32 feat_dim = mat.NumCols();

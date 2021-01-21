@@ -23,6 +23,7 @@ kaldi::chain::DenominatorGraph LoadDenominatorGraph(std::string fst_path, int32 
 bool TestLoadDenominatorGraph(std::string fst_path, int32 num_pdfs);
 kaldi::chain::Supervision ReadOneSupervisionFile(std::string &file_name);
 kaldi::chain::Supervision ReadSupervisionFromFile(std::string &file_name);
+void PrintSupervisionInfoE2E(const kaldi::chain::Supervision &supervision);
 bool ComputeChainObjfAndDeriv(const kaldi::chain::ChainTrainingOptions &opts,
                               const kaldi::chain::DenominatorGraph &den_graph,
                               const kaldi::chain::Supervision &supervision,
@@ -153,6 +154,7 @@ MapType eg_to_egs_;
 
 int32 GetNnetChainExampleSize(const kaldi::nnet3::NnetChainExample &a);
 torch::Tensor GetFeaturesFromEgs(const kaldi::nnet3::NnetChainExample &egs);
+torch::Tensor GetFeaturesFromCompressedEgs(kaldi::nnet3::NnetChainExample &egs);
 torch::Tensor GetIvectorsFromEgs(const kaldi::nnet3::NnetChainExample &egs);
 int32 GetFramesPerSequence(const kaldi::nnet3::NnetChainExample &egs);
 kaldi::chain::Supervision GetSupervisionFromEgs(kaldi::nnet3::NnetChainExample &egs);
