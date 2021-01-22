@@ -43,6 +43,12 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
         .def("Close", &kaldi::BaseFloatMatrixWriter::Close);
 
     auto nnet3 = kaldi_module.def_submodule("nnet3");
+    py::class_<kaldi::nnet3::SequentialNnetChainExampleReader>(nnet3, "SequentialNnetChainExampleReader")
+        .def(py::init<std::string>())
+        .def("Next", &kaldi::nnet3::SequentialNnetChainExampleReader::Next)
+        .def("Done", &kaldi::nnet3::SequentialNnetChainExampleReader::Done)
+        .def("Key", &kaldi::nnet3::SequentialNnetChainExampleReader::Key)
+        .def("Value", &kaldi::nnet3::SequentialNnetChainExampleReader::Value);
     py::class_<kaldi::nnet3::OnlineNaturalGradient>(nnet3, "OnlineNaturalGradient")
         .def(py::init<>())
         .def("SetRank", &kaldi::nnet3::OnlineNaturalGradient::SetRank)
@@ -79,8 +85,10 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     chain.def("MergeChainEgs", &MergeChainEgs);
     chain.def("ShiftEgsVector", &ShiftEgsVector);
     chain.def("GetFeaturesFromEgs", &GetFeaturesFromEgs);
+    chain.def("GetFeaturesFromCompressedEgs", &GetFeaturesFromCompressedEgs);
     chain.def("GetIvectorsFromEgs", &GetIvectorsFromEgs);
     chain.def("GetFramesPerSequence", &GetFramesPerSequence);
     chain.def("GetSupervisionFromEgs", &GetSupervisionFromEgs);
+    chain.def("PrintSupervisionInfoE2E", &PrintSupervisionInfoE2E);
 }
 #endif

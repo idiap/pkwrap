@@ -162,6 +162,32 @@ def get_egs_info(egs_dir):
 
     return num_archives
 
+def egs_reader(egs_rspec):
+    """Read a compressed examples (cegs) file in kaldi
+
+    This function is useful for reading the features and keys
+    for decoding the validation set.
+
+    Args:
+        egs_rspec: a rspecifier as the ones used in Kaldi. For example, if it is
+            a validation diagnostic compressed egs file we may specify it as
+
+            ```
+            ark:/path/to/valid_diagnostic.cegs
+            ```
+    Returns:
+        an iterable to iterate over each (key, utterance) tuple in egs_rspec
+    """
+    reader = kaldi.nnet3.SequentialNnetChainExampleReader(egs_rspec);
+    return reader
+
+def egs_reader_gen(egs_rspec):
+    """A generator function that calls compressed feat_reader to return pytorch Tensors"""
+    reader = egs_reader(egs_rspec)
+    while not reader.Done():
+        yield reader.Key(), kaldi.chain.GetFeaturesFromCompressedEgs(reader.Value())
+        reader.Next()
+
 def feat_reader(feature_rspec):
     """Read a matrix scp file in kaldi
 
