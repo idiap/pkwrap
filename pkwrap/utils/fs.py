@@ -6,7 +6,7 @@
 """
 
 import subprocess
-from . import script_utils
+from .. import script_utils
 import os
 
 def split_data(dirname, num_jobs=0):
