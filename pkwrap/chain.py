@@ -699,12 +699,12 @@ class ChainModel(nn.Module):
             if this_objf > best_objf:
                 best_objf = this_objf
                 best_mdl = moving_average
-                best_num_to_combine = num_accumulated.clone().detach()
+                best_num_to_combine = int(num_accumulated.clone().detach())
                 logging.info("Found best model")
             else:
                 logging.info("Won't update best model")
                         
-        logging.info("Combined {} models".format(best_num_to_combine.cpu()))
+        logging.info("Combined {} models".format(best_num_to_combine))
         logging.info("Initial objf = {}, Final objf = {}".format(init_objf, best_objf))
         best_mdl.cpu()
         torch.save(best_mdl.state_dict(), chain_opts.new_model)
