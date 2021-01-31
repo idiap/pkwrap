@@ -1,0 +1,5 @@
+local/data_prep.sh
+local/download_lm.sh
+local/format_lms.sh
+local/prepare_dict.sh
+local/score.sh
