@@ -259,6 +259,7 @@ def train_lfmmi_one_iter(model, egs_file, den_fst_path, training_opts, feat_dim,
                          right_context=0,
                          print_interval=10,
                          frame_subsampling_factor=3,
+                         optimizer = None,
     ):
     """Run one iteration of LF-MMI training
 
@@ -289,7 +290,8 @@ def train_lfmmi_one_iter(model, egs_file, den_fst_path, training_opts, feat_dim,
     criterion = KaldiChainObjfFunction.apply
     if use_gpu:
         model = model.cuda()
-    optimizer = optim.SGD(model.parameters(), lr=lr, weight_decay=weight_decay)
+    if optimizer is None:
+        optimizer = optim.SGD(model.parameters(), lr=lr, weight_decay=weight_decay)
     acc_sum = torch.tensor(0., requires_grad=False)
     for mb_id, merged_egs in enumerate(prepare_minibatch(egs_file, minibatch_size)):
         chunk_size = kaldi.chain.GetFramesPerSequence(merged_egs)*frame_subsampling_factor
@@ -709,3 +711,60 @@ class ChainModel(nn.Module):
         best_mdl.cpu()
         torch.save(best_mdl.state_dict(), chain_opts.new_model)
         return self
+
+class ChainE2EModel(ChainModel):
+    """Extension of ChainModel to handle Chain E2E training"""
+    def get_optimizer(self, model, lr=0.01, weight_decay=0.001, **kwargs):
+        optimizer = optim.Adam(
+            model.parameters(),
+            lr=lr,
+            weight_decay=weight_decay
+        )
+        return optimizer
+        
+    def train(self):
+        """Run one iteration of LF-MMI training
+
+        This is called by 
+        >>> self.train() 
+
+        It will probably be renamed as self.fit() since this seems to be
+        the standard way other libraries call the training function.
+        """
+        chain_opts = self.chain_opts
+        lr = chain_opts.lr
+        den_fst_path = os.path.join(chain_opts.dir, "den.fst")
+
+#           load model
+        model = self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
+        model.load_state_dict(torch.load(chain_opts.base_model))
+
+        training_opts = kaldi.chain.CreateChainTrainingOptions(
+                chain_opts.l2_regularize, 
+                chain_opts.out_of_range_regularize, 
+                chain_opts.leaky_hmm_coefficient, 
+                chain_opts.xent_regularize,
+        )
+        context = chain_opts.context 
+        model = model.cuda()
+        optimizer = self.get_optimizer(model, weight_decay=chain_opts.l2_regularize_factor)
+        new_model = pkwrap.chain.train_lfmmi_one_iter(
+            model,
+            chain_opts.egs, 
+            den_fst_path, 
+            training_opts, 
+            chain_opts.feat_dim, 
+            minibatch_size=chain_opts.minibatch_size, 
+            left_context=context,
+            right_context=context,
+            lr=chain_opts.lr,
+            weight_decay=chain_opts.l2_regularize_factor,
+            frame_shift=chain_opts.frame_shift,
+            optimizer=optimizer,
+        )
+        torch.save(new_model.state_dict(), chain_opts.new_model)
+
+    def context(self):
+        """Write context of the model to 0 because the Net is designed to pad its own context"""
+        self.save_context(0)
+
