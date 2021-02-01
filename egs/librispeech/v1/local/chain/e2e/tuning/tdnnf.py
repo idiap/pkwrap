@@ -41,6 +41,7 @@ class Net(nn.Module):
         self.output_dim = output_dim
         self.output_subsampling = frame_subsampling_factor
 
+        # manually calculated
         self.padding = 27
         self.frame_subsampling_factor = frame_subsampling_factor
 
@@ -50,8 +51,8 @@ class Net(nn.Module):
             context_len=kernel_size_list[0],
             subsampling_factor=subsampling_factor_list[0],
             orthonormal_constraint=-1.0,
-            p_dropout=p_dropout
         )
+        self.dropout1 = nn.Dropout(p_dropout)
         tdnnfs = []
         for i in range(1, num_layers):
             kernel_size = kernel_size_list[i]
@@ -62,10 +63,11 @@ class Net(nn.Module):
                 bottleneck_dim=bottleneck_dim,
                 context_len=kernel_size,
                 subsampling_factor=subsampling_factor,
-                orthornomal_constraint=-1.0,
-                p_dropout=p_dropout
+                orthonormal_constraint=-1.0,
             )
             tdnnfs.append(layer)
+            dropout_layer = nn.Dropout(p_dropout)
+            tdnnfs.append(dropout_layer)
 
         # tdnnfs requires [N, C, T]
         self.tdnnfs = nn.ModuleList(tdnnfs)
@@ -75,15 +77,13 @@ class Net(nn.Module):
             hidden_dim, hidden_dim,
             bottleneck_dim=prefinal_bottleneck_dim,
             context_len=1,
-            orthornomal_constraint=-1.0,
-            p_dropout=0.0
+            orthonormal_constraint=-1.0,
         )
         self.prefinal_xent = TDNNFBatchNorm(
             hidden_dim, hidden_dim,
             bottleneck_dim=prefinal_bottleneck_dim,
             context_len=1,
-            orthornomal_constraint=-1.0,
-            p_dropout=0.0
+            orthonormal_constraint=-1.0,
         )
         self.chain_output = pkwrap.nn.NaturalAffineTransform(hidden_dim, output_dim)
         self.chain_output.weight.data.zero_()
@@ -104,16 +104,10 @@ class Net(nn.Module):
         assert nnet_output.shape[1] == 10
 
     def pad_input(self, x):
-        N, T, F = x.shape
         if self.padding > 0:
-            x = torch.cat(
-                [
-                    x[:,0:1,:].repeat(1,self.padding,1),
-                    x,
-                    x[:,-1:,:].repeat(1,self.padding,1)
-                ],
-                axis=1
-            )
+            left_pad = x[:,0,:].repeat(1,self.padding,1)
+            right_pad = x[:,-1:,:].repeat(1,self.padding,1)
+            x = torch.cat([left_pad, x, right_pad], axis=1)
         return x
 
     def forward(self, x, dropout=0.):
