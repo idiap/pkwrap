@@ -197,7 +197,7 @@ def constrain_orthonormal(M, scale, update_speed=0.125):
             update_speed *= 0.5
     scale2 = scale**2
     P[range(d), range(d)] -= scale2
-    M.data.addmm_(P, M, alpha=-4*update_speed/scale2)
+    M.data.add_(P.mm(M), alpha=-4*update_speed/scale2)
 
 class OrthonormalLinear(NaturalAffineTransform):
     def __init__(self, feat_dim, out_dim, bias=True, scale=0.0,
