@@ -4,7 +4,8 @@ cuda_cmd = queue.pl -l q_gpu -V
 
 [exp]
 # 8 layer tdnnf model. NOTE: exp/chain${chain_affix} will be prepended automatically
-dirname = tdnnf_e2e_17l_100h
+e2e = True
+dirname = e2e_tdnnf
 train_set = data/train_clean_100_sp_fbank_hires
 tree_dir = exp/chain/e2e_biphone_tree
 model_file = local/chain/e2e/tuning/tdnnf.py
@@ -13,6 +14,7 @@ lang = data/lang_nosp_test_tgsmall
 lang_chain = data/lang_chain
 # trained using prepare_data.sh
 graph_dir = exp/chain/e2e_biphone_tree/graph_tgsmall
+egs_dir = exp/chain/e2e_tdnnf/egs
 
 # train params
 num_epochs = 5
@@ -25,5 +27,7 @@ diagnostics_interval = 10
 minibatch_size = 16
 
 [test]
-test_set = data/dev_clean_hires
+test_set = data/dev_clean_fbank_hires
 suffix = 
+apply_cmvn = True
+cmvn_opts = 
