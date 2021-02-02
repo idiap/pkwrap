@@ -103,12 +103,14 @@ def train():
     if not os.path.exists(dirname):
         os.makedirs(dirname)
     egs_dir = os.path.join(dirname, "egs")
-    gmm_dir = exp_cfg["gmm_dir"]
-    ali_dir = exp_cfg["ali_dir"]
+    is_e2e = bool(exp_cfg["e2e"])
+    if not is_e2e:
+        gmm_dir = exp_cfg["gmm_dir"]
+        ali_dir = exp_cfg["ali_dir"]
+        lat_dir = exp_cfg["lat_dir"]
+        lores_train_set = exp_cfg["lores_train_set"]
     tree_dir = exp_cfg["tree_dir"]
-    lat_dir = exp_cfg["lat_dir"]
     train_set = exp_cfg["train_set"]
-    lores_train_set = exp_cfg["lores_train_set"]
     lang = exp_cfg["lang"] if "lang" in exp_cfg else "lang"
     lang_chain = exp_cfg["lang_chain"] if "lang_chain" in exp_cfg else "lang_chain"
 
