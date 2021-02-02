@@ -4,9 +4,9 @@
 #             Srikanth Madikeri <srikanth.madikeri@idiap.ch>
 
 # tg results on dev_clean
-# %WER 7.87 [ 4283 / 54402, 450 ins, 536 del, 3297 sub ]
+# %WER 7.78 [ 4233 / 54402, 460 ins, 502 del, 3271 sub
 # after fg rescoring
-# %WER 5.07 [ 2759 / 54402, 353 ins, 289 del, 2117 sub ]
+# %WER 5.11 [ 2779 / 54402, 404 ins, 248 del, 2127 sub ]
 
 import torch
 import torch.nn.functional as F
