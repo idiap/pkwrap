@@ -12,6 +12,7 @@ from pkwrap.chain import ChainE2EModel
 import numpy as np
 from torch.nn.utils import clip_grad_value_
 import logging
+logging.basicConfig(level=logging.DEBUG)
 import sys
 
 
