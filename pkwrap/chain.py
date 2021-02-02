@@ -78,24 +78,33 @@ class KaldiChainObjfFunction(torch.autograd.Function):
         nnet_deriv = nnet_deriv.reshape(T, mb, D).permute(1, 0, 2).contiguous()
         xent_deriv = xent_deriv.reshape(T, mb, D).permute(1, 0, 2).contiguous()
 
-        ctx.save_for_backward(nnet_deriv, xent_deriv)
+        ctx.save_for_backward(nnet_deriv, xent_deriv, torch.tensor(opts.xent_regularize, requires_grad=False))
         with torch.no_grad():
-            xent_objf = (xent_out_tensor*xent_deriv).sum()/(mb*T)
-            objf[0] = objf[0]/weight[0]
-            sys.stderr.write(
-                "objf={}, l2={}, xent_objf={}\n".format(
-                    objf[0],
-                    l2_term[0]/weight[0],
-                    xent_objf,
+            if xent_out_tensor is not None:
+                xent_objf = (xent_out_tensor*xent_deriv).sum()/(mb*T)
+                objf[0] = objf[0]/weight[0]
+                logging.info(
+                    "objf={}, l2={}, xent_objf={}".format(
+                        objf[0],
+                        l2_term[0]/weight[0],
+                        xent_objf,
+                    )
                 )
-            )
+            else:
+                objf[0] = objf[0]/weight[0]
+                logging.info(
+                    "objf={}, l2={}".format(
+                        objf[0],
+                        l2_term[0]/weight[0],
+                    )
+                )
         return objf
 
     @staticmethod
     def backward(ctx, dummy):
         """returns the derivatives"""
-        nnet_deriv, xent_deriv = ctx.saved_tensors
-        return None, None, None, -nnet_deriv, -0.1*xent_deriv
+        nnet_deriv, xent_deriv, xent_regularize = ctx.saved_tensors
+        return None, None, None, -nnet_deriv, -xent_regularize*xent_deriv
 
 
 class OnlineNaturalGradient(torch.autograd.Function):
@@ -260,6 +269,7 @@ def train_lfmmi_one_iter(model, egs_file, den_fst_path, training_opts, feat_dim,
                          print_interval=10,
                          frame_subsampling_factor=3,
                          optimizer = None,
+                         e2e = False,
     ):
     """Run one iteration of LF-MMI training
 
@@ -458,7 +468,7 @@ class ChainModel(nn.Module):
         lr = chain_opts.lr
         den_fst_path = os.path.join(chain_opts.dir, "den.fst")
 
-#           load model
+        # load model
         model = self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
         model.load_state_dict(torch.load(chain_opts.base_model))
 
@@ -731,6 +741,7 @@ class ChainE2EModel(ChainModel):
         It will probably be renamed as self.fit() since this seems to be
         the standard way other libraries call the training function.
         """
+        kaldi.InstantiateKaldiCuda()
         chain_opts = self.chain_opts
         lr = chain_opts.lr
         den_fst_path = os.path.join(chain_opts.dir, "den.fst")
@@ -747,8 +758,8 @@ class ChainE2EModel(ChainModel):
         )
         context = chain_opts.context 
         model = model.cuda()
-        optimizer = self.get_optimizer(model, weight_decay=chain_opts.l2_regularize_factor)
-        new_model = pkwrap.chain.train_lfmmi_one_iter(
+        optimizer = self.get_optimizer(model, lr=chain_opts.lr, weight_decay=chain_opts.l2_regularize_factor)
+        new_model = train_lfmmi_one_iter(
             model,
             chain_opts.egs, 
             den_fst_path, 
@@ -761,6 +772,7 @@ class ChainE2EModel(ChainModel):
             weight_decay=chain_opts.l2_regularize_factor,
             frame_shift=chain_opts.frame_shift,
             optimizer=optimizer,
+            e2e = True
         )
         torch.save(new_model.state_dict(), chain_opts.new_model)
 
