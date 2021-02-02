@@ -3,6 +3,11 @@
 #  Written by Apoorv Vyas <apoorv.vyas@idiap.ch>
 #             Srikanth Madikeri <srikanth.madikeri@idiap.ch>
 
+# tg results on dev_clean
+# %WER 7.87 [ 4283 / 54402, 450 ins, 536 del, 3297 sub ]
+# after fg rescoring
+# %WER 5.07 [ 2759 / 54402, 353 ins, 289 del, 2117 sub ]
+
 import torch
 import torch.nn.functional as F
 import torch.nn as nn
