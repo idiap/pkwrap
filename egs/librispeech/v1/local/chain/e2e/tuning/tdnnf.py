@@ -105,8 +105,9 @@ class Net(nn.Module):
 
     def pad_input(self, x):
         if self.padding > 0:
-            left_pad = x[:,0,:].repeat(1,self.padding,1)
-            right_pad = x[:,-1:,:].repeat(1,self.padding,1)
+            N, T, C = x.shape
+            left_pad = x[:,0:1,:].repeat(1,self.padding,1).reshape(N, -1, C)
+            right_pad = x[:,-1,:].repeat(1,self.padding,1).reshape(N, -1, C)
             x = torch.cat([left_pad, x, right_pad], axis=1)
         return x
 
@@ -116,6 +117,7 @@ class Net(nn.Module):
         x = self.pad_input(x)
         # at this point, x is [N, T, C]
         x = self.tdnn1(x)
+        x = self.dropout1(x)
 
         # tdnnf requires input of shape [N, C, T]
         for i in range(len(self.tdnnfs)):
