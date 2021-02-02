@@ -350,24 +350,24 @@ def train():
             if iter_no >= 20:
                 mdl = os.path.join(dirname, "{}.pt".format(iter_no-10))
                 pkwrap.script_utils.run(["rm", mdl])
-    # do final model combination
-    model_list = [
-            os.path.join(dirname, f"{i}.pt")
-            for i in range(num_iters, num_iters-10, -1)
-    ]
-    logging.info("Final model combination...")
-    diagnostic_name = 'valid'
-    egs_file = os.path.join(egs_dir, '{}_diagnostic.cegs'.format(diagnostic_name))
-    process_out = subprocess.run([
-        *cuda_cmd.split(),
-        "{}/log/combine.log".format(dirname),
-        model_file,
-        "--dir", dirname,
-        "--mode", "final_combination",
-        "--new-model", os.path.join(dirname, "final.pt"),
-        "--egs", "ark:{}".format(egs_file),
-        ",".join(model_list)
-    ])
+        # do final model combination
+        model_list = [
+                os.path.join(dirname, f"{i}.pt")
+                for i in range(num_iters, num_iters-10, -1)
+        ]
+        logging.info("Final model combination...")
+        diagnostic_name = 'valid'
+        egs_file = os.path.join(egs_dir, '{}_diagnostic.cegs'.format(diagnostic_name))
+        process_out = subprocess.run([
+            *cuda_cmd.split(),
+            "{}/log/combine.log".format(dirname),
+            model_file,
+            "--dir", dirname,
+            "--mode", "final_combination",
+            "--new-model", os.path.join(dirname, "final.pt"),
+            "--egs", "ark:{}".format(egs_file),
+            ",".join(model_list)
+        ])
 
     graph_dir = ""
     decode_params = cfg_parse[args.test_config]
@@ -410,6 +410,15 @@ def train():
         if "ivector_dir" in decode_params and len(decode_params["ivector_dir"])>0:
             ivector_opts = ["--ivector-dir", decode_params["ivector_dir"]]
 
+        if "apply_cmvn" in decode_params and bool(decode_params["apply_cmvn"]):
+            use_cmvn = True
+            cmvn_opts = decode_params["cmvn_opts"]
+            utt2spk_name = "ark:{}/split{}/JOB/utt2spk".format(data_dir, num_jobs)
+            feats_name = "scp:{}/split{}/JOB/feats.scp".format(data_dir, num_jobs)
+            cmvn_name = "scp:{}/split{}/JOB/cmvn.scp".format(data_dir, num_jobs)
+            feats_scp = "ark,s,cs:apply-cmvn {} --utt2spk={} {} {} ark:- |".format(cmvn_opts, utt2spk_name, cmvn_name, feats_name)
+        else:
+            feats_scp = "scp:{}/split{}/JOB/feats.scp".format(data_dir, num_jobs)
         pkwrap.script_utils.run([
             *cpu_cmd.split(),
             "JOB=1:{}".format(num_jobs),
@@ -418,7 +427,7 @@ def train():
             "--dir", dirname,
             "--mode", "decode",
             *ivector_opts,
-            "--decode-feats", "scp:{}/split{}/JOB/feats.scp".format(data_dir, num_jobs),
+            "--decode-feats", feats_scp,
             os.path.join(dirname, "{}.pt".format(decode_iter)),
             "|",
             "shutil/decode/latgen-faster-mapped.sh",
