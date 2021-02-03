@@ -103,7 +103,10 @@ def train():
     if not os.path.exists(dirname):
         os.makedirs(dirname)
     egs_dir = os.path.join(dirname, "egs")
-    is_e2e = bool(exp_cfg["e2e"])
+    if "e2e" in exp_cfg["e2e"]:
+        is_e2e = bool(exp_cfg["e2e"])
+    else:
+        is_e2e = False
     if not is_e2e:
         gmm_dir = exp_cfg["gmm_dir"]
         ali_dir = exp_cfg["ali_dir"]
