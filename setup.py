@@ -14,8 +14,8 @@ from torch.utils import cpp_extension
 import torch
 pytorch_version = torch.__version__
 pytorch_major_ver, pytorch_min_ver = list(map(int, pytorch_version.split('.')[:2]))
-if pytorch_major_ver != 1 or pytorch_min_ver > 6:
-    sys.stderr.write("We support pytorch version until 1.6 only\n")
+if pytorch_major_ver != 1 or pytorch_min_ver > 7:
+    sys.stderr.write("We support pytorch version until 1.7 only\n")
     quit(1)
 
 KALDI_ROOT = os.getenv('KALDI_ROOT')
@@ -61,8 +61,9 @@ if MKL_ROOT:
     EXTRA_COMPILE_ARGS['cxx'] += ['-I{}/include'.format(MKL_ROOT)]
     LIBRARIES += ["mkl_intel_lp64", "mkl_core", "mkl_sequential"]
 
-AUTHORS = ['Srikanth Madikeri']
-AUTHOR_STR = ','.join(AUTHORS)
+with open('./AUTHORS') as ipf:
+    AUTHORS = [ln.strip() for ln in ipf]
+    AUTHOR_STR = ','.join(AUTHORS)
 
 LICENSE = 'Apache 2.0'
 VERSION = '0.2.26'
