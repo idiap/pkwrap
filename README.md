@@ -43,11 +43,16 @@ Otherwise, it should be added to ``$LD_LIBRARY_PATH`` as follows
 LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$KALDI_ROOT/src/lib
 ```
 
-Currently there are two recipes for the conventional LF-MMI training with 
+Currently there are recipes for conventional LF-MMI training with 
 pkwrap
 
 - [Minilibrespeech recipe](egs/mini_librespeech/s5/README.md)
 - [Switchboard](egs/switchboard/v1/README.md)
+- [Librispeech](egs/librispeech/v1/README.md)
+
+For flatstart LF-MMI training there is a recipe in [Librispeech](egs/librispeech/v1/README.md).
+
+For experiments related to quantization of acoustic models trained in Kaldi see ``egs/librispeech/quant`` in ``load_kaldi_models`` branch.
 
 ## REFERENCES & CITATION
 
