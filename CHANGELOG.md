@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## [0.2.27] - 2021-02-03
+
+- Fixes to minilibrispeech recipe
+    - typos in tdnnf.py fixed
+    - missing parameters in config file added
+- train.py: regression fix to handle e2e option correctly
+
 ## [0.2.26] - 2021-02-02
 
 - Librispeech 100h e2e recipe added
