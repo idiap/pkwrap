@@ -21,11 +21,11 @@ class Net(nn.Module):
         self.init_blstm = nn.LSTM(feat_dim, 256, 1, batch_first=True, bidirectional=True)
         self.final_blstm = nn.LSTM(512, 256, 4, batch_first=True, bidirectional=True)
         self.chain = nn.Sequential(
-            TDNNFBatchNorm(512, 256, 160, context_len=1, orthornomal_constraint=-1.0),
+            TDNNFBatchNorm(512, 256, 160, context_len=1, orthonormal_constraint=-1.0),
             NaturalAffineTransform(256, output_dim),
         )
         self.xent = nn.Sequential(
-            TDNNFBatchNorm(512, 256, 160, context_len=1, orthornomal_constraint=-1.0),
+            TDNNFBatchNorm(512, 256, 160, context_len=1, orthonormal_constraint=-1.0),
             NaturalAffineTransform(256, output_dim),
         )
         self.chain[-1].weight.data.zero_()
