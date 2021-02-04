@@ -225,9 +225,10 @@ def feat_writer(feature_wspec):
 
 def run(cmd, quit_on_error=True):
     """Run a command using subprocess, quit if return code is non-zero"""
-    p = subprocess.run(cmd)
+    p = subprocess.run(cmd, stdout=subprocess.PIPE)
     if quit_on_error and p.returncode != 0:
         quit(p.returncode)
+    return p
 
 def copy_file(src, dest):
     """Copy a file from source to destination
@@ -280,3 +281,7 @@ def read_single_param_file(src, typename=int):
     assert param is not None
     return param
 
+def write_single_param_file(value, filename):
+    with open(filename, 'w') as opf:
+        opf.write('{}'.format(value))
+        opf.close()
