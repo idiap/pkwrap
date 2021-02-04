@@ -9,6 +9,8 @@ import subprocess
 from .. import script_utils
 import os
 
+run = script_utils.run
+
 def split_data(dirname, num_jobs=0):
     """Call's Kaldi's utils/split_data.sh script
 
@@ -74,3 +76,11 @@ def touch_file(file_path):
         subprocess.run(["touch", file_path])
     except:
         quit(1)
+
+def cat(file_list, out_file):
+    with open(out_file, 'w') as opf:
+        subprocess.run([
+            "cat",
+            *file_list
+            ],
+            stdout=opf)
