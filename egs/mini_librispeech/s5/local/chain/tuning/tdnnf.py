@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 # Copyright 2020    Srikant Madikeri (Idiap Research Institute)
 
+# RESULT
+# cat exp/chain/tdnnf/decode_dev_clean_2_hires_iterfinal/wer_* | fgrep WER | sort -k2,2 | head -1
+# %WER 17.22 [ 3468 / 20138, 359 ins, 516 del, 2593 sub ]
+
 """
     simple TDNNF implementation, but no randomization used. the updates
     are done every iteration.
@@ -20,19 +24,19 @@ class Net(nn.Module):
         self.input_dim = feat_dim
         self.output_dim = output_dim
         self.tdnn = nn.Sequential(
-            TDNNFBatchNorm(feat_dim, 512, 160, context_len=5, orthornomal_constraint=-1.0),
-            TDNNFBatchNorm(512, 512, 160, context_len=3, orthornomal_constraint=-1.0),
-            TDNNFBatchNorm(512, 512, 160, context_len=3, subsampling_factor=3, orthornomal_constraint=-1.0),
-            TDNNFBatchNorm(512, 512, 160, context_len=3, orthornomal_constraint=-1.0),
-            TDNNFBatchNorm(512, 512, 160, context_len=3, orthornomal_constraint=-1.0),
-            TDNNFBatchNorm(512, 512, 160, context_len=3, orthornomal_constraint=-1.0),
+            TDNNFBatchNorm(feat_dim, 512, 160, context_len=5, orthonormal_constraint=-1.0),
+            TDNNFBatchNorm(512, 512, 160, context_len=3, orthonormal_constraint=-1.0),
+            TDNNFBatchNorm(512, 512, 160, context_len=3, subsampling_factor=3, orthonormal_constraint=-1.0),
+            TDNNFBatchNorm(512, 512, 160, context_len=3, orthonormal_constraint=-1.0),
+            TDNNFBatchNorm(512, 512, 160, context_len=3, orthonormal_constraint=-1.0),
+            TDNNFBatchNorm(512, 512, 160, context_len=3, orthonormal_constraint=-1.0),
         )
         self.chain = nn.Sequential(
-            TDNNFBatchNorm(512, 512, 160, context_len=1, orthornomal_constraint=-1.0),
+            TDNNFBatchNorm(512, 512, 160, context_len=1, orthonormal_constraint=-1.0),
             NaturalAffineTransform(512, output_dim),
         )
         self.xent = nn.Sequential(
-            TDNNFBatchNorm(512, 512, 160, context_len=1, orthornomal_constraint=-1.0),
+            TDNNFBatchNorm(512, 512, 160, context_len=1, orthonormal_constraint=-1.0),
             NaturalAffineTransform(512, output_dim),
         )
         self.chain[-1].weight.data.zero_()
