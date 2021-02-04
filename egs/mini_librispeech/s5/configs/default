@@ -23,7 +23,8 @@ num_jobs_final = 6
 lr_initial = 0.001
 lr_final = 0.0001
 diagnostics_interval = 10
-minibatch_size = 32
+minibatch_size = 64
+frames_per_iter = 1500000
 
 [test]
 test_set = data/dev_clean_2_hires
