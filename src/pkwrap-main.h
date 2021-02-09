@@ -74,7 +74,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
         .def_readwrite("leaky_hmm_coefficient", &kaldi::chain::ChainTrainingOptions::leaky_hmm_coefficient)
         .def_readwrite("out_of_range_regularize", &kaldi::chain::ChainTrainingOptions::out_of_range_regularize)
         .def_readwrite("l2_regularize", &kaldi::chain::ChainTrainingOptions::l2_regularize);
-        
+
     py::class_<kaldi::nnet3::NnetChainExample>(chain, "NnetChainExample");
     py::class_<kaldi::chain::Supervision>(chain, "Supervision");
 
@@ -83,6 +83,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     chain.def("LoadDenominatorGraph", &LoadDenominatorGraph);
     chain.def("TestLoadDenominatorGraph", &TestLoadDenominatorGraph);
     chain.def("ComputeChainObjfAndDeriv", &ComputeChainObjfAndDeriv);
+    chain.def("ComputeChainObjfAndDerivNoXent", &ComputeChainObjfAndDerivNoXent);
     chain.def("ReadOneSupervisionFile", &ReadOneSupervisionFile);
     chain.def("ReadSupervisionFromFile", &ReadSupervisionFromFile);
     chain.def("ReadChainEgsFile", &ReadChainEgsFile);
