@@ -55,7 +55,8 @@ def submit_diagnostic_jobs(dirname, model_file, iter_no, egs_dir, job_cmd):
     return job_pool
 
 def run_job(num_jobs, job_id, dirname, iter_no, model_file, lr, frame_shift, egs_dir,
-    num_archives, num_archives_processed, minibatch_size, job_cmd):
+    num_archives, num_archives_processed, minibatch_size, job_cmd,
+    xent_regularize=0.025,):
     """
         sub a single job and let ThreadPoolExecutor monitor its progress
     """
@@ -71,6 +72,7 @@ def run_job(num_jobs, job_id, dirname, iter_no, model_file, lr, frame_shift, egs
                 "--l2-regularize-factor", str(1.0/num_jobs),
                 "--minibatch-size", minibatch_size,
                 "--new-model", os.path.join(dirname, "{}.{}.pt".format(iter_no, job_id)),
+                "--xent-regularize", str(xent_regularize),
                 os.path.join(dirname, "{}.pt".format(iter_no))])
     return process_out.returncode
 
@@ -103,17 +105,25 @@ def train():
     if not os.path.exists(dirname):
         os.makedirs(dirname)
     egs_dir = os.path.join(dirname, "egs")
-    gmm_dir = exp_cfg["gmm_dir"]
-    ali_dir = exp_cfg["ali_dir"]
+    if "e2e" in exp_cfg:
+        is_e2e = bool(exp_cfg["e2e"])
+    else:
+        is_e2e = False
+    if not is_e2e:
+        gmm_dir = exp_cfg["gmm_dir"]
+        ali_dir = exp_cfg["ali_dir"]
+        lat_dir = exp_cfg["lat_dir"]
+        lores_train_set = exp_cfg["lores_train_set"]
     tree_dir = exp_cfg["tree_dir"]
-    lat_dir = exp_cfg["lat_dir"]
     train_set = exp_cfg["train_set"]
-    lores_train_set = exp_cfg["lores_train_set"]
     lang = exp_cfg["lang"] if "lang" in exp_cfg else "lang"
     lang_chain = exp_cfg["lang_chain"] if "lang_chain" in exp_cfg else "lang_chain"
 
     l2_regularize = args.l2_regularize
-    
+    xent_regularize = args.xent_regularize
+    if "xent_regularize" in exp_cfg:
+        xent_regularize = exp_cfg["xent_regularize"]
+
     model_opts = pkwrap.trainer.ModelOpts().load_from_config(exp_cfg)
     frame_subsampling_factor = model_opts.frame_subsampling_factor
     trainer_opts = pkwrap.trainer.TrainerOpts().load_from_config(exp_cfg)
@@ -181,7 +191,6 @@ def train():
             os.path.join(tree_dir, "tree"),
             dirname
         )
-    learning_rate_factor = 0.5/args.xent_regularize
 
 #   create den.fst
     if stage <= 3:
@@ -320,7 +329,8 @@ def train():
                         p = executor.submit(run_job,num_jobs, job_id, dirname, iter_no,
                                         model_file, lr, frame_shift, 
                                         egs_dir, num_archives, num_archives_processed,
-                                        exp_cfg["minibatch_size"], cuda_cmd)
+                                        exp_cfg["minibatch_size"], cuda_cmd,
+                                        xent_regularize=xent_regularize)
                         num_archives_processed += 1
                         job_pool.append(p)
                     for p in as_completed(job_pool):
@@ -348,24 +358,24 @@ def train():
             if iter_no >= 20:
                 mdl = os.path.join(dirname, "{}.pt".format(iter_no-10))
                 pkwrap.script_utils.run(["rm", mdl])
-    # do final model combination
-    model_list = [
-            os.path.join(dirname, f"{i}.pt")
-            for i in range(num_iters, num_iters-10, -1)
-    ]
-    logging.info("Final model combination...")
-    diagnostic_name = 'valid'
-    egs_file = os.path.join(egs_dir, '{}_diagnostic.cegs'.format(diagnostic_name))
-    process_out = subprocess.run([
-        *cuda_cmd.split(),
-        "{}/log/combine.log".format(dirname),
-        model_file,
-        "--dir", dirname,
-        "--mode", "final_combination",
-        "--new-model", os.path.join(dirname, "final.pt"),
-        "--egs", "ark:{}".format(egs_file),
-        ",".join(model_list)
-    ])
+        # do final model combination
+        model_list = [
+                os.path.join(dirname, f"{i}.pt")
+                for i in range(num_iters, num_iters-10, -1)
+        ]
+        logging.info("Final model combination...")
+        diagnostic_name = 'valid'
+        egs_file = os.path.join(egs_dir, '{}_diagnostic.cegs'.format(diagnostic_name))
+        process_out = subprocess.run([
+            *cuda_cmd.split(),
+            "{}/log/combine.log".format(dirname),
+            model_file,
+            "--dir", dirname,
+            "--mode", "final_combination",
+            "--new-model", os.path.join(dirname, "final.pt"),
+            "--egs", "ark:{}".format(egs_file),
+            ",".join(model_list)
+        ])
 
     graph_dir = ""
     decode_params = cfg_parse[args.test_config]
@@ -408,6 +418,15 @@ def train():
         if "ivector_dir" in decode_params and len(decode_params["ivector_dir"])>0:
             ivector_opts = ["--ivector-dir", decode_params["ivector_dir"]]
 
+        if "apply_cmvn" in decode_params and bool(decode_params["apply_cmvn"]):
+            use_cmvn = True
+            cmvn_opts = decode_params["cmvn_opts"]
+            utt2spk_name = "ark:{}/split{}/JOB/utt2spk".format(data_dir, num_jobs)
+            feats_name = "scp:{}/split{}/JOB/feats.scp".format(data_dir, num_jobs)
+            cmvn_name = "scp:{}/split{}/JOB/cmvn.scp".format(data_dir, num_jobs)
+            feats_scp = "ark,s,cs:apply-cmvn {} --utt2spk={} {} {} ark:- |".format(cmvn_opts, utt2spk_name, cmvn_name, feats_name)
+        else:
+            feats_scp = "scp:{}/split{}/JOB/feats.scp".format(data_dir, num_jobs)
         pkwrap.script_utils.run([
             *cpu_cmd.split(),
             "JOB=1:{}".format(num_jobs),
@@ -416,7 +435,7 @@ def train():
             "--dir", dirname,
             "--mode", "decode",
             *ivector_opts,
-            "--decode-feats", "scp:{}/split{}/JOB/feats.scp".format(data_dir, num_jobs),
+            "--decode-feats", feats_scp,
             os.path.join(dirname, "{}.pt".format(decode_iter)),
             "|",
             "shutil/decode/latgen-faster-mapped.sh",

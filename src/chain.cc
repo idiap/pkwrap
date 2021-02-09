@@ -115,6 +115,52 @@ bool ComputeChainObjfAndDeriv(const kaldi::chain::ChainTrainingOptions &opts,
     return true;
 }
 
+bool ComputeChainObjfAndDerivNoXent(const kaldi::chain::ChainTrainingOptions &opts,
+                              const kaldi::chain::DenominatorGraph &den_graph,
+                              const kaldi::chain::Supervision &supervision,
+                              torch::Tensor &nnet_output,
+                              torch::Tensor &objf,
+                              torch::Tensor &l2_term,
+                              torch::Tensor &weight,
+                              torch::Tensor &nnet_output_deriv
+                              ) {
+    if(den_graph.NumPdfs() != nnet_output.size(1)) {
+        std::cout << "ERROR: In pkwrap's ComputeChainObjfAndDeriv, den_graph is not compatible with the output matrix" << std::endl;
+        std::cout << "den_graph has " << den_graph.NumPdfs() << " pdfs and output has " << nnet_output.size(1)  << " columns" << std::endl;
+        return false;
+    }
+    if (objf.size(0) != 1) {
+        std::cout << "ERROR: In pkwrap's ComputeChainObjfAndDeriv, objf should be a scalar" << std::endl;
+        return false;
+    }
+    if (weight.size(0) != 1) {
+        std::cout << "ERROR: In pkwrap's ComputeChainObjfAndDeriv, weight should be a scalar" << std::endl;
+        return false;
+    }
+    if (l2_term.size(0) != 1) {
+        std::cout << "ERROR: In pkwrap's ComputeChainObjfAndDeriv, l2_term should be a scalar" << std::endl;
+        return false;
+    }
+
+    kaldi::BaseFloat objf_;
+    kaldi::BaseFloat l2_term_;
+    kaldi::BaseFloat weight_;
+    if(kaldi::CuDevice::Instantiate().Enabled()) {
+        auto nnet_output_cumat = TensorToKaldiCuSubMatrix(nnet_output);
+        kaldi::CuMatrix<BaseFloat> xent_output_deriv_cumat;
+        auto nnet_output_deriv_cumat = TensorToKaldiCuSubMatrix(nnet_output_deriv);
+        kaldi::chain::ComputeChainObjfAndDeriv(opts, den_graph, supervision, 
+                nnet_output_cumat, &objf_, &l2_term_, &weight_, 
+                &nnet_output_deriv_cumat,
+                NULL);
+    }
+
+    objf[0]= objf_;
+    l2_term[0] = l2_term_;
+    weight[0] = weight_;
+    return true;
+}
+
 std::vector<kaldi::nnet3::NnetChainExample> ReadChainEgsFile(std::string egs_file_path, int32 frame_shift) {
     kaldi::nnet3::SequentialNnetChainExampleReader example_reader(egs_file_path);
     std::vector<kaldi::nnet3::NnetChainExample> out;

@@ -3,6 +3,10 @@
 //
 #include "pkwrap-main.h"
 
+static bool instantiated = false;
 inline void InstantiateKaldiCuda() {
-    kaldi::CuDevice::Instantiate().SelectGpuId("yes");
+    if(!instantiated) {
+        kaldi::CuDevice::Instantiate().SelectGpuId("yes");
+        instantiated = true;
+    }
 }

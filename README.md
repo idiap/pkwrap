@@ -1,5 +1,7 @@
 # README
 
+**UPDATE (2021-02-03)**: See [changelog](./CHANGELOG.md) for the latest updates to the code
+
 This is a (yet another!) python wrapper for Kaldi. The main goal is to be able to train acoustic models in Pytorch
 so that we can
 
@@ -18,8 +20,7 @@ loading NNet3 models and having access to the parameters of the model). Modifyin
 custom versions of Kaldi and CLIF. Moreover, if one simply wanted to converting Tensors in GPU to Kaldi CuMatrix
 was not efficient (the general route afaik would be Tensor GPU -> Tensor CPU -> Kaldi Matrix CPU -> Kaldi Matrix GPU).
 
-**Pykaldi2** provides a version of LF-MMI training, which uses Pykaldi functions.
-
+**Pykaldi2** provides a version of LF-MMI training, which uses Pykaldi functions.  
 ## INSTALLATION
 
 **ATTENTION!!!**: Make sure that your pytorch environment is loaded before following the rest of the instructions.
@@ -43,11 +44,16 @@ Otherwise, it should be added to ``$LD_LIBRARY_PATH`` as follows
 LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$KALDI_ROOT/src/lib
 ```
 
-Currently there are two recipes for the conventional LF-MMI training with 
+Currently there are recipes for conventional LF-MMI training with 
 pkwrap
 
 - [Minilibrespeech recipe](egs/mini_librespeech/s5/README.md)
 - [Switchboard](egs/switchboard/v1/README.md)
+- [Librispeech](egs/librispeech/v1/README.md)
+
+For flatstart LF-MMI training there is a recipe in [Librispeech](egs/librispeech/v1/README.md).
+
+For experiments related to quantization of acoustic models trained in Kaldi see ``egs/librispeech/quant`` in ``load_kaldi_models`` branch.
 
 ## REFERENCES & CITATION
 

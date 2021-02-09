@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# Copyright (c) 2021 Idiap Research Institute, http://www.idiap.ch/
+# Written by Apoorv Vyas <apoorv.vyas@idiap.ch>,
+# Srikanth Madikeri <srikanth.madikeri@idiap.ch>
+
 
 cmd=run.pl
 num_extra_lm_states=2000

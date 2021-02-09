@@ -62,40 +62,65 @@ class KaldiChainObjfFunction(torch.autograd.Function):
         # we need to permut the output
         nnet_output_copy = nnet_output_tensor.permute(1, 0, 2).reshape(-1, D).contiguous()
         nnet_deriv = torch.zeros_like(nnet_output_copy).contiguous()
-        xent_deriv = torch.zeros_like(nnet_output_copy).contiguous()
-        kaldi.chain.ComputeChainObjfAndDeriv(
-            opts,
-            den_graph,
-            supervision,
-            nnet_output_copy,
-            objf,
-            l2_term,
-            weight,
-            nnet_deriv,
-            xent_deriv,
-        )
-        # return the derivates in the original order
-        nnet_deriv = nnet_deriv.reshape(T, mb, D).permute(1, 0, 2).contiguous()
-        xent_deriv = xent_deriv.reshape(T, mb, D).permute(1, 0, 2).contiguous()
-
-        ctx.save_for_backward(nnet_deriv, xent_deriv)
-        with torch.no_grad():
+        if xent_out_tensor is not None:
+            xent_deriv = torch.zeros_like(nnet_output_copy).contiguous()
+            kaldi.chain.ComputeChainObjfAndDeriv(
+                opts,
+                den_graph,
+                supervision,
+                nnet_output_copy,
+                objf,
+                l2_term,
+                weight,
+                nnet_deriv,
+                xent_deriv,
+            )
+            nnet_deriv = nnet_deriv.reshape(T, mb, D).permute(1, 0, 2).contiguous()
+            xent_deriv = xent_deriv.reshape(T, mb, D).permute(1, 0, 2).contiguous()
             xent_objf = (xent_out_tensor*xent_deriv).sum()/(mb*T)
             objf[0] = objf[0]/weight[0]
-            sys.stderr.write(
-                "objf={}, l2={}, xent_objf={}\n".format(
+            logging.info(
+                "objf={}, l2={}, xent_objf={}".format(
                     objf[0],
                     l2_term[0]/weight[0],
                     xent_objf,
                 )
             )
+            ctx.save_for_backward(nnet_deriv, xent_deriv, torch.tensor(opts.xent_regularize, requires_grad=False))
+            logging.info("HERE xent_regularize is {}".format(opts.xent_regularize))
+        else:
+            kaldi.chain.ComputeChainObjfAndDerivNoXent(
+                opts,
+                den_graph,
+                supervision,
+                nnet_output_copy,
+                objf,
+                l2_term,
+                weight,
+                nnet_deriv,
+            )
+            nnet_deriv = nnet_deriv.reshape(T, mb, D).permute(1, 0, 2).contiguous()
+            xent_deriv = None
+            objf[0] = objf[0]/weight[0]
+            logging.info(
+                "objf={}, l2={}".format(
+                    objf[0],
+                    l2_term[0]/weight[0],
+                )
+            )
+            ctx.save_for_backward(nnet_deriv)
+        # return the derivates in the original order
         return objf
 
     @staticmethod
     def backward(ctx, dummy):
         """returns the derivatives"""
-        nnet_deriv, xent_deriv = ctx.saved_tensors
-        return None, None, None, -nnet_deriv, -0.1*xent_deriv
+        if len(ctx.saved_tensors) == 3:
+            nnet_deriv, xent_deriv, xent_regularize = ctx.saved_tensors
+            return None, None, None, -nnet_deriv, -xent_regularize*xent_deriv
+        else:
+            nnet_deriv = ctx.saved_tensors[0]
+            return None, None, None, -nnet_deriv, None
 
 
 class OnlineNaturalGradient(torch.autograd.Function):
@@ -218,7 +243,7 @@ class ChainExample(torch.utils.data.Dataset):
             return (key, value, lang_id)
         else:
             return (key, value, lang_id)
-        
+
 def load_egs(egs_file):
     """Loads the contents of the egs file.
 
@@ -227,7 +252,7 @@ def load_egs(egs_file):
 
     Args:
         egs_file: scp or ark file, should be prefix accordingly just like Kaldi
-    
+
     Returns:
         A list of NnetChainExample
     """
@@ -242,7 +267,7 @@ def prepare_minibatch(egs_file, minibatch_size):
     Args:
         egs_file: scp or ark file (a string), should be prefix accordingly just like Kaldi
         minibatch_size: a string of minibatch sizes separated by commas. E.g "64" or "128,64"
-    
+
     Returns:
         A list of NnetChainExample. Each item contains merged examples with number of 
         sequences as given in the minibatch_size
@@ -259,6 +284,8 @@ def train_lfmmi_one_iter(model, egs_file, den_fst_path, training_opts, feat_dim,
                          right_context=0,
                          print_interval=10,
                          frame_subsampling_factor=3,
+                         optimizer = None,
+                         e2e = False,
     ):
     """Run one iteration of LF-MMI training
 
@@ -289,7 +316,8 @@ def train_lfmmi_one_iter(model, egs_file, den_fst_path, training_opts, feat_dim,
     criterion = KaldiChainObjfFunction.apply
     if use_gpu:
         model = model.cuda()
-    optimizer = optim.SGD(model.parameters(), lr=lr, weight_decay=weight_decay)
+    if optimizer is None:
+        optimizer = optim.SGD(model.parameters(), lr=lr, weight_decay=weight_decay)
     acc_sum = torch.tensor(0., requires_grad=False)
     for mb_id, merged_egs in enumerate(prepare_minibatch(egs_file, minibatch_size)):
         chunk_size = kaldi.chain.GetFramesPerSequence(merged_egs)*frame_subsampling_factor
@@ -456,7 +484,7 @@ class ChainModel(nn.Module):
         lr = chain_opts.lr
         den_fst_path = os.path.join(chain_opts.dir, "den.fst")
 
-#           load model
+        # load model
         model = self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
         model.load_state_dict(torch.load(chain_opts.base_model))
 
@@ -699,13 +727,73 @@ class ChainModel(nn.Module):
             if this_objf > best_objf:
                 best_objf = this_objf
                 best_mdl = moving_average
-                best_num_to_combine = num_accumulated.clone().detach()
+                best_num_to_combine = int(num_accumulated.clone().detach())
                 logging.info("Found best model")
             else:
                 logging.info("Won't update best model")
                         
-        logging.info("Combined {} models".format(best_num_to_combine.cpu()))
+        logging.info("Combined {} models".format(best_num_to_combine))
         logging.info("Initial objf = {}, Final objf = {}".format(init_objf, best_objf))
         best_mdl.cpu()
         torch.save(best_mdl.state_dict(), chain_opts.new_model)
         return self
+
+class ChainE2EModel(ChainModel):
+    """Extension of ChainModel to handle Chain E2E training"""
+    def get_optimizer(self, model, lr=0.01, weight_decay=0.001, **kwargs):
+        optimizer = optim.Adam(
+            model.parameters(),
+            lr=lr,
+            weight_decay=weight_decay
+        )
+        return optimizer
+
+    def train(self):
+        """Run one iteration of LF-MMI training
+
+        This is called by
+        >>> self.train()
+
+        It will probably be renamed as self.fit() since this seems to be
+        the standard way other libraries call the training function.
+        """
+        kaldi.InstantiateKaldiCuda()
+        chain_opts = self.chain_opts
+        lr = chain_opts.lr
+        den_fst_path = os.path.join(chain_opts.dir, "den.fst")
+
+#           load model
+        model = self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
+        model.load_state_dict(torch.load(chain_opts.base_model))
+
+        training_opts = kaldi.chain.CreateChainTrainingOptions(
+                chain_opts.l2_regularize, 
+                chain_opts.out_of_range_regularize, 
+                chain_opts.leaky_hmm_coefficient, 
+                chain_opts.xent_regularize,
+        )
+        logging.info("xent passed as {}".format(chain_opts.xent_regularize))
+        context = chain_opts.context 
+        model = model.cuda()
+        optimizer = self.get_optimizer(model, lr=chain_opts.lr, weight_decay=chain_opts.l2_regularize_factor)
+        new_model = train_lfmmi_one_iter(
+            model,
+            chain_opts.egs, 
+            den_fst_path, 
+            training_opts, 
+            chain_opts.feat_dim, 
+            minibatch_size=chain_opts.minibatch_size, 
+            left_context=context,
+            right_context=context,
+            lr=chain_opts.lr,
+            weight_decay=chain_opts.l2_regularize_factor,
+            frame_shift=chain_opts.frame_shift,
+            optimizer=optimizer,
+            e2e = True
+        )
+        torch.save(new_model.state_dict(), chain_opts.new_model)
+
+    def context(self):
+        """Write context of the model to 0 because the Net is designed to pad its own context"""
+        self.save_context(0)
+
