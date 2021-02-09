@@ -62,49 +62,65 @@ class KaldiChainObjfFunction(torch.autograd.Function):
         # we need to permut the output
         nnet_output_copy = nnet_output_tensor.permute(1, 0, 2).reshape(-1, D).contiguous()
         nnet_deriv = torch.zeros_like(nnet_output_copy).contiguous()
-        xent_deriv = torch.zeros_like(nnet_output_copy).contiguous()
-        kaldi.chain.ComputeChainObjfAndDeriv(
-            opts,
-            den_graph,
-            supervision,
-            nnet_output_copy,
-            objf,
-            l2_term,
-            weight,
-            nnet_deriv,
-            xent_deriv,
-        )
+        if xent_out_tensor is not None:
+            xent_deriv = torch.zeros_like(nnet_output_copy).contiguous()
+            kaldi.chain.ComputeChainObjfAndDeriv(
+                opts,
+                den_graph,
+                supervision,
+                nnet_output_copy,
+                objf,
+                l2_term,
+                weight,
+                nnet_deriv,
+                xent_deriv,
+            )
+            nnet_deriv = nnet_deriv.reshape(T, mb, D).permute(1, 0, 2).contiguous()
+            xent_deriv = xent_deriv.reshape(T, mb, D).permute(1, 0, 2).contiguous()
+            xent_objf = (xent_out_tensor*xent_deriv).sum()/(mb*T)
+            objf[0] = objf[0]/weight[0]
+            logging.info(
+                "objf={}, l2={}, xent_objf={}".format(
+                    objf[0],
+                    l2_term[0]/weight[0],
+                    xent_objf,
+                )
+            )
+            ctx.save_for_backward(nnet_deriv, xent_deriv, torch.tensor(opts.xent_regularize, requires_grad=False))
+            logging.info("HERE xent_regularize is {}".format(opts.xent_regularize))
+        else:
+            kaldi.chain.ComputeChainObjfAndDerivNoXent(
+                opts,
+                den_graph,
+                supervision,
+                nnet_output_copy,
+                objf,
+                l2_term,
+                weight,
+                nnet_deriv,
+            )
+            nnet_deriv = nnet_deriv.reshape(T, mb, D).permute(1, 0, 2).contiguous()
+            xent_deriv = None
+            objf[0] = objf[0]/weight[0]
+            logging.info(
+                "objf={}, l2={}".format(
+                    objf[0],
+                    l2_term[0]/weight[0],
+                )
+            )
+            ctx.save_for_backward(nnet_deriv)
         # return the derivates in the original order
-        nnet_deriv = nnet_deriv.reshape(T, mb, D).permute(1, 0, 2).contiguous()
-        xent_deriv = xent_deriv.reshape(T, mb, D).permute(1, 0, 2).contiguous()
-
-        ctx.save_for_backward(nnet_deriv, xent_deriv, torch.tensor(opts.xent_regularize, requires_grad=False))
-        with torch.no_grad():
-            if xent_out_tensor is not None:
-                xent_objf = (xent_out_tensor*xent_deriv).sum()/(mb*T)
-                objf[0] = objf[0]/weight[0]
-                logging.info(
-                    "objf={}, l2={}, xent_objf={}".format(
-                        objf[0],
-                        l2_term[0]/weight[0],
-                        xent_objf,
-                    )
-                )
-            else:
-                objf[0] = objf[0]/weight[0]
-                logging.info(
-                    "objf={}, l2={}".format(
-                        objf[0],
-                        l2_term[0]/weight[0],
-                    )
-                )
         return objf
 
     @staticmethod
     def backward(ctx, dummy):
         """returns the derivatives"""
-        nnet_deriv, xent_deriv, xent_regularize = ctx.saved_tensors
-        return None, None, None, -nnet_deriv, -xent_regularize*xent_deriv
+        if len(ctx.saved_tensors) == 3:
+            nnet_deriv, xent_deriv, xent_regularize = ctx.saved_tensors
+            return None, None, None, -nnet_deriv, -xent_regularize*xent_deriv
+        else:
+            nnet_deriv = ctx.saved_tensors[0]
+            return None, None, None, -nnet_deriv, None
 
 
 class OnlineNaturalGradient(torch.autograd.Function):
@@ -227,7 +243,7 @@ class ChainExample(torch.utils.data.Dataset):
             return (key, value, lang_id)
         else:
             return (key, value, lang_id)
-        
+
 def load_egs(egs_file):
     """Loads the contents of the egs file.
 
@@ -236,7 +252,7 @@ def load_egs(egs_file):
 
     Args:
         egs_file: scp or ark file, should be prefix accordingly just like Kaldi
-    
+
     Returns:
         A list of NnetChainExample
     """
@@ -251,7 +267,7 @@ def prepare_minibatch(egs_file, minibatch_size):
     Args:
         egs_file: scp or ark file (a string), should be prefix accordingly just like Kaldi
         minibatch_size: a string of minibatch sizes separated by commas. E.g "64" or "128,64"
-    
+
     Returns:
         A list of NnetChainExample. Each item contains merged examples with number of 
         sequences as given in the minibatch_size
@@ -731,12 +747,12 @@ class ChainE2EModel(ChainModel):
             weight_decay=weight_decay
         )
         return optimizer
-        
+
     def train(self):
         """Run one iteration of LF-MMI training
 
-        This is called by 
-        >>> self.train() 
+        This is called by
+        >>> self.train()
 
         It will probably be renamed as self.fit() since this seems to be
         the standard way other libraries call the training function.
@@ -756,6 +772,7 @@ class ChainE2EModel(ChainModel):
                 chain_opts.leaky_hmm_coefficient, 
                 chain_opts.xent_regularize,
         )
+        logging.info("xent passed as {}".format(chain_opts.xent_regularize))
         context = chain_opts.context 
         model = model.cuda()
         optimizer = self.get_optimizer(model, lr=chain_opts.lr, weight_decay=chain_opts.l2_regularize_factor)
