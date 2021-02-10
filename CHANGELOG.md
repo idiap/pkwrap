@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## [0.2.27.1] - 2021-02-11
+
+- Patch to enable compatibility with all recent Kaldi versions (since Apr 2020)
+
 ## [0.2.27] - 2021-02-03
 
 - Fixes to minilibrispeech recipe
