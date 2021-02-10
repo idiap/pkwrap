@@ -37,10 +37,10 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
         .def(py::init<std::string>())
         .def("HasKey", &kaldi::RandomAccessBaseFloatMatrixReader::HasKey)
         .def("Value", &kaldi::RandomAccessBaseFloatMatrixReader::Value);
-    py::class_<kaldi::BaseFloatMatrixWriter>(matrix, "BaseFloatMatrixWriter")
+    py::class_<BaseFloatMatrixWriter>(matrix, "BaseFloatMatrixWriter")
         .def(py::init<std::string>())
-        .def("Write", &kaldi::BaseFloatMatrixWriter::Write)
-        .def("Close", &kaldi::BaseFloatMatrixWriter::Close);
+        .def("Write", &BaseFloatMatrixWriter::Write)
+        .def("Close", &BaseFloatMatrixWriter::Close);
 
     auto nnet3 = kaldi_module.def_submodule("nnet3");
     py::class_<kaldi::nnet3::SequentialNnetChainExampleReader>(nnet3, "SequentialNnetChainExampleReader")
