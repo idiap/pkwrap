@@ -66,7 +66,7 @@ with open('./AUTHORS') as ipf:
     AUTHOR_STR = ','.join(AUTHORS)
 
 LICENSE = 'Apache 2.0'
-VERSION = '0.2.27'
+VERSION = '0.2.27.2'
 
 setup(name=PACKAGE_NAME,
       version=VERSION,
