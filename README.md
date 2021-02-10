@@ -26,7 +26,7 @@ was not efficient (the general route afaik would be Tensor GPU -> Tensor CPU -> 
 **ATTENTION!!!**: Make sure that your pytorch environment is loaded before following the rest of the instructions.
 
 1. Activate your pytorch environment
-2. Compile Kaldi with `CXXFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"`. This code has been tested to work with Kaldi ``6f329a62``.
+2. Compile Kaldi with `CXXFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"`. 
 3. Set ``KALDI_ROOT`` and optionally ``MKL_ROOT`` in the environment. Note: in the future this will be made easier with autoconf.
 4. Run ``make``
 
