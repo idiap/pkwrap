@@ -53,7 +53,8 @@ The model is stored in ``exp/chain/e2e_tdnnf/``. Once the entire script finishes
 4. To rescore with a 4gram LM, run:
 
 ```
-steps/lmrescore_const_arpa.sh --cmd "queue.pl -l q1d -l io_big -V -P parole" data/lang_lp_test_{tgsmall,fglarge} data/dev_clean_fbank_hires/ exp/chain/e2e_tdnnf/decode_dev_clean_fbank_hires_iterfinal/ exp/chain/e2e_tdnnf/decode_dev_clean_fbank_hires_iterfinal_fg
+. cmd.sh
+steps/lmrescore_const_arpa.sh --cmd "$decode_cmd" data/lang_lp_test_{tgsmall,fglarge} data/dev_clean_fbank_hires/ exp/chain/e2e_tdnnf/decode_dev_clean_fbank_hires_iterfinal/ exp/chain/e2e_tdnnf/decode_dev_clean_fbank_hires_iterfinal_fg
 ```
 
 The expected WER is 
