@@ -16,6 +16,7 @@ from _pkwrap import kaldi
 from . import chain
 from . import matrix
 from . import script_utils
+from collections import defaultdict, namedtuple
 
 class KaldiChainObjfFunction(torch.autograd.Function):
     """LF-MMI objective function for pytorch
@@ -797,3 +798,82 @@ class ChainE2EModel(ChainModel):
         """Write context of the model to 0 because the Net is designed to pad its own context"""
         self.save_context(0)
 
+
+EgsInfo = namedtuple('EgsInfo', ['name', 'wav', 'fst', 'duration'])
+def read_wav_scp(wav_scp):
+    utt2wav = {}
+    with open(wav_scp) as ipf:
+        for ln in ipf:
+            lns = ln.strip().rstrip('|').split()
+            uttname = lns[0]
+            utt2wav[uttname] = lns[1:]
+    return utt2wav
+
+def read_utt2dur_file(utt2dur_file):
+    utt2dur = {}
+    with open(utt2dur_file) as utt2dur_f:
+        for ln in utt2dur_f:
+            lns = ln.strip().split()
+            utt2dur[lns[0]] = float(lns[1])
+    return utt2dur
+
+def get_egs_holder(fst_file, utt2wav, utt2dur):
+    egs_holder = []
+    with open(fst_file) as ipf:
+        total, done, skipped = 0, 0, 0
+        for ln in ipf:
+            lns = ln.strip().split()
+            total += 1
+            try:
+                uttname, fstscp = lns
+            except:
+                logging.erorr("Excepted fst file {} to have only 2 columns".format(fst_file))
+            if uttname not in utt2wav:
+                skipped += 1
+                continue
+            if uttname not in utt2dur:
+                logging.warning("Cannot find duration for {}".format(uttname))
+                skipped += 1
+                continue
+            this_egs_info = EgsInfo(uttname, utt2wav[uttname], fstscp, utt2dur[uttname])
+            egs_holder.append(this_egs_info)
+            done += 1
+        logging.info("In get_egs_holder: total={}, done={}, skipped={}".format(total, done, skipped))
+    return egs_holder
+
+def prepare_e2e_minibatch():
+    pass
+class BatchSampler(torch.utils.data.BatchSampler):
+    def __iter__(self):
+        batch_by_length = defaultdict(list)
+        for idx in self.sampler:
+            l = idx.duration
+            batch_by_length[l].append(idx)
+            if len(batch_by_length[l]) == self.batch_size:
+                # we will have to normalize and merge egs
+                yield prepare_e2e_minibatch(batch_by_length[l])
+                batch_by_length[l] = []
+        for l in batch_by_length:
+            if batch_by_length[l] and not self.drop_last:
+                yield prepare_e2e_minibatch(batch_by_length[l])
+
+class E2EEgsDataset(torch.utils.data.Dataset):
+    def __init__(self, egs_folder, cegs_idx):
+        self.egs_holder = self.prepare_egs(egs_folder, cegs_idx)
+
+    def __len__(self):
+        return len(self.egs_holder)
+
+    def __item__(self, i):
+        # we may need to return wav and normalized fst instead
+        return self.egs_holder[i]
+
+    def prepare_egs(egs_folder, cegs_index):
+        # egs file is wav.scp file
+        egs_file = "{}/cegs.{}.ark".format(egs_folder, cegs_index)
+        fst_file = "{}/fst.{}.scp".format(egs_folder, cegs_index)
+        utt2dur_file = "{}/utt2dur.{}".format(egs_folder, cegs_index)
+        utt2wav = read_wav_scp(egs_file)
+        utt2dur = read_utt2dur_file(utt2dur_file)
+        egs_holder = get_egs_holder(fst_file, utt2wav, utt2dur)
+        return egs_holder
