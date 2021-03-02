@@ -22,7 +22,7 @@ Table of Contents
 <!--te-->
 
 ------------------------------------
-MOTIVATION
+Motivation
 ------------------------------------
 The main motivation of this project is to run MMI training in Pytorch. The idea is to use existing
 functionality in Kaldi so that we don't have to re-implement anything.
@@ -37,7 +37,7 @@ was not efficient (the general route afaik would be Tensor GPU -> Tensor CPU -> 
 **Pykaldi2** provides a version of LF-MMI training, which uses Pykaldi functions.
 
 ------------------------------------
-INSTALLATION
+Installation
 ------------------------------------
 **ATTENTION!!!**: Make sure that your pytorch environment is loaded before following the rest of the instructions.
 
@@ -46,12 +46,12 @@ INSTALLATION
 3. Set ``KALDI_ROOT`` and optionally ``MKL_ROOT`` in the environment. Note: in the future this will be made easier with autoconf.
 4. Run ``make``
 
-### KNOWN ISSUES/COMMON PITFALLS
+### Known Issues / Common Pitfalls
 
 - the g++ version of pytorch, kaldi and pkwrap should match!
 
 ------------------------------------
-USAGE
+Usage
 ------------------------------------
 Before importing do check if Kaldi libraries used to compile the package are accessible by python.
 Otherwise, it should be added to ``$LD_LIBRARY_PATH`` as follows
@@ -72,7 +72,7 @@ For flatstart LF-MMI training there is a recipe in [Librispeech](egs/librispeech
 For experiments related to quantization of acoustic models trained in Kaldi see ``egs/librispeech/quant`` in ``load_kaldi_models`` branch.
 
 ------------------------------------
-WORKS BASED ON THIS REPOSITORY
+Works based on this repository
 ------------------------------------
 Following list of works are based on this repository and might be of interest:
 
@@ -81,7 +81,7 @@ Following list of works are based on this repository and might be of interest:
     - Code: [Adaptation of Pretrained Acoustic Models (APAM)](https://github.com/idiap/apam)
 
 ------------------------------------
-REFERENCES & CITATION
+References and Citation
 ------------------------------------
 The technical report is now available [here](https://arxiv.org/abs/2010.03466). The report can
 be cited as in the following bibtex example:
