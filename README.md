@@ -77,8 +77,8 @@ Works based on this repository
 Following list of works are based on this repository and might be of interest:
 
 1.Lattice-Free MMI Adaptation Of Self-Supervised Pretrained Acoustic Models
-    - Paper: [https://arxiv.org/abs/2012.14252](https://arxiv.org/abs/2012.14252)
-    - Code: [Adaptation of Pretrained Acoustic Models (APAM)](https://github.com/idiap/apam)
+  - Paper: [https://arxiv.org/abs/2012.14252](https://arxiv.org/abs/2012.14252)
+  - Code: [Adaptation of Pretrained Acoustic Models (APAM)](https://github.com/idiap/apam)
 
 ------------------------------------
 References and Citation
