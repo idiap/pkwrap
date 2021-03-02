@@ -17,7 +17,7 @@ Table of Contents
    * [Motivation](#motivation)
    * [Installation](#installation)
    * [Usage](#usage)
-   * [Works based on Pkwrap](#works-based-on-this-repository)
+   * [Works based on Pkwrap](#works-based-on-pkwrap)
    * [References and citation](#references-and-citation)
 <!--te-->
 
@@ -72,7 +72,7 @@ For flatstart LF-MMI training there is a recipe in [Librispeech](egs/librispeech
 For experiments related to quantization of acoustic models trained in Kaldi see ``egs/librispeech/quant`` in ``load_kaldi_models`` branch.
 
 ------------------------------------
-Works based on this repository
+Works based on Pkwrap
 ------------------------------------
 Following list of works are based on this repository and might be of interest:
 
