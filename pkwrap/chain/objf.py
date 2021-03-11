@@ -14,9 +14,9 @@ import torch.nn as nn
 from torch.nn.utils import clip_grad_value_
 import torch.optim as optim
 from _pkwrap import kaldi
-from . import chain
-from . import matrix
-from . import script_utils
+from .. import chain
+from .. import matrix
+from .. import script_utils
 from collections import defaultdict, namedtuple
 import librosa
 import subprocess
