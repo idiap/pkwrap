@@ -7,6 +7,7 @@
 #include "matrix.h"
 #include "chain.h"
 #include "nnet3.h"
+#include "fst.h"
 // This is required to make sure kaldi CuMatrix and the likes are actually 
 // in the GPU. We don't handle the behavior of the function being called twice though.
 inline void InstantiateKaldiCuda();
@@ -76,7 +77,10 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
         .def_readwrite("l2_regularize", &kaldi::chain::ChainTrainingOptions::l2_regularize);
 
     py::class_<kaldi::nnet3::NnetChainExample>(chain, "NnetChainExample");
-    py::class_<kaldi::chain::Supervision>(chain, "Supervision");
+    py::class_<kaldi::chain::Supervision>(chain, "Supervision")
+        .def(py::init<>());
+    chain.def("TrainingGraphToSupervisionE2e", &kaldi::chain::TrainingGraphToSupervisionE2e);
+    chain.def("AddWeightToSupervisionFst", &kaldi::chain::AddWeightToSupervisionFst);
 
     // custom functions
     chain.def("CreateChainTrainingOptions", &CreateChainTrainingOptions);
@@ -96,5 +100,11 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     chain.def("GetFramesPerSequence", &GetFramesPerSequence);
     chain.def("GetSupervisionFromEgs", &GetSupervisionFromEgs);
     chain.def("PrintSupervisionInfoE2E", &PrintSupervisionInfoE2E);
+
+    auto fst = kaldi_module.def_submodule("fst");
+    py::class_<fst::StdVectorFst >(fst, "StdVectorFst")
+        .def(py::init<>());
+    fst.def("ReadFstKaldi", &ReadFstKaldi);
 }
+
 #endif
