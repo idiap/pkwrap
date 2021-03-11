@@ -40,7 +40,7 @@ class KaldiChainObjfFunction(torch.autograd.Function):
     @staticmethod
     def forward(ctx, opts, den_graph, supervision, nnet_output_tensor,
                 xent_out_tensor):
-        """This function computes the loss for a single minibatch. 
+        """This function computes the loss for a single minibatch.
 
         This function calls Kaldi's ComputeChainObjfAndDeriv through our
         pybind11 wrapper. It takes the network outputs, rearranges them
@@ -140,14 +140,14 @@ class OnlineNaturalGradient(torch.autograd.Function):
     @staticmethod
     def forward(ctx, input, weight, bias, in_state, out_state):
         """Forward pass for NG-SGD layer
-        
+
         Args:
             input: the input to the layer (a Tensor)
             weight: weight matrix of the layer (a Tensor)
             bias: the bias parameters of the layer (a Tensor)
             in_state: state of the input (a kaldi.nnet3.OnlineNaturalGradient object)
             out_state: state of the output (a kaldi.nnet3.OnlineNaturalGradient object)
-        
+
         Returns:
             Linear transformation of the input with weight and bias.
             The other inputs are saved in the context to be used during the call
@@ -275,7 +275,7 @@ def prepare_minibatch(egs_file, minibatch_size):
         minibatch_size: a string of minibatch sizes separated by commas. E.g "64" or "128,64"
 
     Returns:
-        A list of NnetChainExample. Each item contains merged examples with number of 
+        A list of NnetChainExample. Each item contains merged examples with number of
         sequences as given in the minibatch_size
     """
     egs = load_egs(egs_file)
@@ -283,9 +283,9 @@ def prepare_minibatch(egs_file, minibatch_size):
     merged_egs = kaldi.chain.MergeChainEgs(egs, str(minibatch_size))
     return merged_egs
 
-def train_lfmmi_one_iter(model, egs_file, den_fst_path, training_opts, feat_dim, 
-                         minibatch_size="64", use_gpu=True, lr=0.0001, 
-                         weight_decay=0.25, frame_shift=0, 
+def train_lfmmi_one_iter(model, egs_file, den_fst_path, training_opts, feat_dim,
+                         minibatch_size="64", use_gpu=True, lr=0.0001,
+                         weight_decay=0.25, frame_shift=0,
                          left_context=0,
                          right_context=0,
                          print_interval=10,
@@ -296,7 +296,7 @@ def train_lfmmi_one_iter(model, egs_file, den_fst_path, training_opts, feat_dim,
     """Run one iteration of LF-MMI training
 
     The function loads the latest model, takes a list of egs, path to denominator
-    fst and runs through the merged egs for one iteration of training. This is 
+    fst and runs through the merged egs for one iteration of training. This is
     similar to how one iteration of training is completed in Kaldi.
 
     Args:
@@ -345,14 +345,14 @@ def train_lfmmi_one_iter(model, egs_file, den_fst_path, training_opts, feat_dim,
     return model
 
 def compute_chain_objf(model, egs_file, den_fst_path, training_opts,
-    minibatch_size="64", use_gpu=True, frame_shift=0, 
+    minibatch_size="64", use_gpu=True, frame_shift=0,
     left_context=0,
     right_context=0,
     frame_subsampling_factor=3):
     """Function to compute objective value from a minibatch, useful for diagnositcs.
-    
+
     Args:
-        model: the model to run validation on 
+        model: the model to run validation on
         egs_file: egs containing the validation set
         den_fst_path: path to den.fst
         training_opts: ChainTrainingOpts object
@@ -413,7 +413,7 @@ class ChainModelOpts(TrainerOpts, DecodeOpts):
     feat_dim: int = 1
     context: int = 0
     frame_subsampling_factor: int = 3
-    
+
     def load_from_config(self, cfg):
         for key, value in cfg.items():
             if hasattr(self, key):
@@ -445,7 +445,7 @@ class ChainModel(nn.Module):
 
     def call_by_mode(self):
         """A that calls appropriate method based on the value of chain_opts.mode
-        
+
         So far the modes supported are:
             - init
             - context
@@ -480,8 +480,8 @@ class ChainModel(nn.Module):
     def train(self):
         """Run one iteration of LF-MMI training
 
-        This is called by 
-        >>> self.train() 
+        This is called by
+        >>> self.train()
 
         It will probably be renamed as self.fit() since this seems to be
         the standard way other libraries call the training function.
@@ -495,19 +495,19 @@ class ChainModel(nn.Module):
         model.load_state_dict(torch.load(chain_opts.base_model))
 
         training_opts = kaldi.chain.CreateChainTrainingOptions(
-                chain_opts.l2_regularize, 
-                chain_opts.out_of_range_regularize, 
-                chain_opts.leaky_hmm_coefficient, 
+                chain_opts.l2_regularize,
+                chain_opts.out_of_range_regularize,
+                chain_opts.leaky_hmm_coefficient,
                 chain_opts.xent_regularize,
         )
-        context = chain_opts.context 
+        context = chain_opts.context
         new_model = train_lfmmi_one_iter(
             model,
-            chain_opts.egs, 
-            den_fst_path, 
-            training_opts, 
-            chain_opts.feat_dim, 
-            minibatch_size=chain_opts.minibatch_size, 
+            chain_opts.egs,
+            den_fst_path,
+            training_opts,
+            chain_opts.feat_dim,
+            minibatch_size=chain_opts.minibatch_size,
             left_context=context,
             right_context=context,
             lr=chain_opts.lr,
@@ -528,16 +528,16 @@ class ChainModel(nn.Module):
         model.eval()
 
         training_opts = kaldi.chain.CreateChainTrainingOptions(
-                chain_opts.l2_regularize, 
-                chain_opts.out_of_range_regularize, 
-                chain_opts.leaky_hmm_coefficient, 
+                chain_opts.l2_regularize,
+                chain_opts.out_of_range_regularize,
+                chain_opts.leaky_hmm_coefficient,
                 chain_opts.xent_regularize,
-        ) 
+        )
         compute_chain_objf(
             model,
-            chain_opts.egs, 
-            den_fst_path, 
-            training_opts, 
+            chain_opts.egs,
+            den_fst_path,
+            training_opts,
             minibatch_size="1:64",
             left_context=chain_opts.context,
             right_context=chain_opts.context,
@@ -595,7 +595,7 @@ class ChainModel(nn.Module):
         visited = Counter()
         with torch.no_grad():
           feat_dim = 40
-          num_pdfs = 300 
+          num_pdfs = 300
           model = self.Net(40, 300)
           chunk_sizes = [(150,50), (50, 17), (100, 34), (10, 4), (20, 7)]
           frame_shift = 0
@@ -641,13 +641,13 @@ class ChainModel(nn.Module):
     def reset_dims(self):
         # what if the user wants to pass it? Just override this function
         num_pdfs_filename = os.path.join(
-            self.chain_opts.dir, 
+            self.chain_opts.dir,
             "num_pdfs"
         )
         self.chain_opts.output_dim = script_utils.read_single_param_file(num_pdfs_filename)
 
         feat_dim_filename = os.path.join(
-            self.chain_opts.dir, 
+            self.chain_opts.dir,
             "feat_dim"
         )
         # checking this because we don't always need feat_dim (e.g. when
@@ -690,11 +690,11 @@ class ChainModel(nn.Module):
         base_models = chain_opts.base_model.split(',')
         assert len(base_models)>0
         training_opts = kaldi.chain.CreateChainTrainingOptions(
-                chain_opts.l2_regularize, 
-                chain_opts.out_of_range_regularize, 
-                chain_opts.leaky_hmm_coefficient, 
+                chain_opts.l2_regularize,
+                chain_opts.out_of_range_regularize,
+                chain_opts.leaky_hmm_coefficient,
                 chain_opts.xent_regularize,
-        ) 
+        )
 
         moving_average = self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
         best_mdl =  self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
@@ -703,8 +703,8 @@ class ChainModel(nn.Module):
         best_mdl = moving_average
         compute_objf = lambda mdl: compute_chain_objf(
             mdl,
-            chain_opts.egs, 
-            den_fst_path, 
+            chain_opts.egs,
+            den_fst_path,
             training_opts,
             minibatch_size="1:64", # TODO: this should come from a config
             left_context=chain_opts.context,
@@ -737,7 +737,7 @@ class ChainModel(nn.Module):
                 logging.info("Found best model")
             else:
                 logging.info("Won't update best model")
-                        
+
         logging.info("Combined {} models".format(best_num_to_combine))
         logging.info("Initial objf = {}, Final objf = {}".format(init_objf, best_objf))
         best_mdl.cpu()
@@ -773,22 +773,22 @@ class ChainE2EModel(ChainModel):
         model.load_state_dict(torch.load(chain_opts.base_model))
 
         training_opts = kaldi.chain.CreateChainTrainingOptions(
-                chain_opts.l2_regularize, 
-                chain_opts.out_of_range_regularize, 
-                chain_opts.leaky_hmm_coefficient, 
+                chain_opts.l2_regularize,
+                chain_opts.out_of_range_regularize,
+                chain_opts.leaky_hmm_coefficient,
                 chain_opts.xent_regularize,
         )
         logging.info("xent passed as {}".format(chain_opts.xent_regularize))
-        context = chain_opts.context 
+        context = chain_opts.context
         model = model.cuda()
         optimizer = self.get_optimizer(model, lr=chain_opts.lr, weight_decay=chain_opts.l2_regularize_factor)
         new_model = train_lfmmi_one_iter(
             model,
-            chain_opts.egs, 
-            den_fst_path, 
-            training_opts, 
-            chain_opts.feat_dim, 
-            minibatch_size=chain_opts.minibatch_size, 
+            chain_opts.egs,
+            den_fst_path,
+            training_opts,
+            chain_opts.feat_dim,
+            minibatch_size=chain_opts.minibatch_size,
             left_context=context,
             right_context=context,
             lr=chain_opts.lr,
