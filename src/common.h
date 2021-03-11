@@ -17,5 +17,6 @@
 #include "nnet3/nnet-utils.h"
 #include "nnet3/nnet-simple-component.h"
 #include "cudamatrix/cu-matrix.h"
+#include "fstext/kaldi-fst-io.h"
 
 #endif
