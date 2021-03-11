@@ -12,9 +12,11 @@
 #include "nnet3/nnet-chain-example.h"
 #include "chain/chain-denominator.h"
 #include "chain/chain-training.h"
+#include "chain/chain-supervision.h"
 #include "base/kaldi-common.h"
 #include "util/common-utils.h"
 #include "hmm/transition-model.h"
+#include "nnet3/nnet-chain-example.h"
 #include "nnet3/nnet-example-utils.h"
 
 kaldi::chain::ChainTrainingOptions CreateChainTrainingOptions(float l2, float oor, float lhc, float xentr);
@@ -166,4 +168,6 @@ torch::Tensor GetFeaturesFromCompressedEgs(kaldi::nnet3::NnetChainExample &egs);
 torch::Tensor GetIvectorsFromEgs(const kaldi::nnet3::NnetChainExample &egs);
 int32 GetFramesPerSequence(const kaldi::nnet3::NnetChainExample &egs);
 kaldi::chain::Supervision GetSupervisionFromEgs(kaldi::nnet3::NnetChainExample &egs);
+void MergeSupervision(const std::vector<kaldi::nnet3::NnetChainSupervision> &inputs,
+    kaldi::nnet3::NnetChainSupervision &output);
 #endif

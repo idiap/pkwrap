@@ -8,6 +8,7 @@
 #include "chain.h"
 #include "nnet3.h"
 #include "fst.h"
+#include "hmm.h"
 // This is required to make sure kaldi CuMatrix and the likes are actually 
 // in the GPU. We don't handle the behavior of the function being called twice though.
 inline void InstantiateKaldiCuda();
@@ -43,6 +44,12 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
         .def("Write", &BaseFloatMatrixWriter::Write)
         .def("Close", &BaseFloatMatrixWriter::Close);
 
+    auto hmm = kaldi_module.def_submodule("hmm");
+    py::class_<kaldi::TransitionModel>(hmm, "TransitionModel")
+        .def(py::init<> ())
+        .def("Read", &kaldi::TransitionModel::Read)
+        .def("Write", &kaldi::TransitionModel::Write);
+    hmm.def("ReadTransitionModel", &ReadTransitionModel);
     auto nnet3 = kaldi_module.def_submodule("nnet3");
     py::class_<kaldi::nnet3::SequentialNnetChainExampleReader>(nnet3, "SequentialNnetChainExampleReader")
         .def(py::init<std::string>())
@@ -100,11 +107,14 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     chain.def("GetFramesPerSequence", &GetFramesPerSequence);
     chain.def("GetSupervisionFromEgs", &GetSupervisionFromEgs);
     chain.def("PrintSupervisionInfoE2E", &PrintSupervisionInfoE2E);
+    chain.def("MergeSupervision", &MergeSupervision);
+    chain.def("MergeSupervisionE2e", &kaldi::chain::MergeSupervisionE2e);
 
     auto fst = kaldi_module.def_submodule("fst");
     py::class_<fst::StdVectorFst >(fst, "StdVectorFst")
         .def(py::init<>());
     fst.def("ReadFstKaldi", &ReadFstKaldi);
+    /* fst.def("ReadFstKaldiFromScpLine", &ReadFstKaldiFromScpLine); */
 }
 
 #endif

@@ -491,3 +491,76 @@ int32 GetFramesPerSequence(const kaldi::nnet3::NnetChainExample &egs) {
 kaldi::chain::Supervision GetSupervisionFromEgs(kaldi::nnet3::NnetChainExample &egs) {
     return egs.outputs[0].supervision;
 }
+
+// The following function is copied and modified from Kaldi's nnet-chain-example.cc,
+// because in Kaldi is a static function, which means that it is not visible to us here
+// Copyright      2015    Johns Hopkins University (author: Daniel Povey)
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//  http://www.apache.org/licenses/LICENSE-2.0
+//
+// Modifications: 
+//     1. Take a reference to a vector of NnetChainSupervision
+//     2. The output is passed as a reference
+void MergeSupervision(
+    const std::vector<kaldi::nnet3::NnetChainSupervision> &inputs,
+    kaldi::nnet3::NnetChainSupervision &output) {
+  int32 num_inputs = inputs.size(),
+      num_indexes = 0;
+  for (int32 n = 0; n < num_inputs; n++) {
+    KALDI_ASSERT(inputs[n].name == inputs[0].name);
+    num_indexes += inputs[n].indexes.size();
+  }
+  output.name = inputs[0].name;
+  output.indexes.clear();
+  output.indexes.reserve(num_indexes);
+  for (int32 n = 0; n < num_inputs; n++) {
+    const std::vector<kaldi::nnet3::Index> &src_indexes = inputs[n].indexes;
+    int32 cur_size = output.indexes.size();
+    output.indexes.insert(output.indexes.end(),
+                           src_indexes.begin(), src_indexes.end());
+    std::vector<kaldi::nnet3::Index>::iterator iter = output.indexes.begin() + cur_size,
+        end = output.indexes.end();
+    // change the 'n' index to correspond to the index into 'input'.
+    // Each example gets a different 'n' value, starting from 0.
+    for (; iter != end; ++iter) {
+      if(iter->n != 0) {
+          std::cerr << "pkwrap: Merging already merged egs" << std::endl;
+      }
+      iter->n = n;
+    }
+  }
+  if(output.indexes.size() != num_indexes) {
+      std::cerr << "pkwrap: output.indexes is not equal to num_indexes" << std::endl;
+      return;
+  }
+  // OK, at this point the 'indexes' will be in the wrong order,
+  // because they should be first sorted by 't' and next by 'n'.
+  // 'sort' will fix this, due to the operator < on type Index.
+  std::sort(output.indexes.begin(), output.indexes.end());
+
+  // merge the deriv_weights.
+  if (inputs[0].deriv_weights.Dim() != 0) {
+    int32 frames_per_sequence = inputs[0].deriv_weights.Dim();
+    output.deriv_weights.Resize(output.indexes.size(), kaldi::kUndefined);
+    if(output.deriv_weights.Dim() !=  frames_per_sequence * num_inputs) {
+      std::cerr << "pkwrap: Error merging chain" << std::endl;
+      return;
+    }
+    for (int32 n = 0; n < num_inputs; n++) {
+      const kaldi::Vector<kaldi::BaseFloat> &src_deriv_weights = inputs[n].deriv_weights;
+      if(src_deriv_weights.Dim() != frames_per_sequence) {
+          std::cerr << "pkwrap: Error merging chain. Derivative weights dimension is not equal to frames_per_sequence" << std::endl;
+          return;
+      }
+      // the ordering of the deriv_weights corresponds to the ordering of the
+      // Indexes, where the time dimension has the greater stride.
+      for (int32 t = 0; t < frames_per_sequence; t++) {
+        output.deriv_weights(t * num_inputs + n) = src_deriv_weights(t);
+      }
+    }
+  }
+  output.CheckDim();
+}
