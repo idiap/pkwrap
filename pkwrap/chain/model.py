@@ -1,26 +1,17 @@
 # Copyright (c) 2020 Idiap Research Institute, http://www.idiap.ch/
 #  Written by Srikanth Madikeri <srikanth.madikeri@idiap.ch>
 
-import sys
 import os
-import random
-from collections import OrderedDict, Counter
+from collections import Counter
 import logging
 import argparse
 from dataclasses import dataclass
-from librosa.core.constantq import __num_two_factors
 import torch
 import torch.nn as nn
-from torch.nn.utils import clip_grad_value_
 import torch.optim as optim
 from _pkwrap import kaldi
 from .. import matrix
 from .. import script_utils
-from collections import defaultdict, namedtuple
-import librosa
-import subprocess
-import io
-from math import ceil
 from .objf import train_lfmmi_one_iter
 
 @dataclass
