@@ -31,6 +31,7 @@ SRC_FILES = ['src/pkwrap-main.cc',
              'src/chain.cc',
              'src/nnet3.cc',
              'src/fst.cc',
+             'src/hmm.cc',
             ]
 EXTRA_COMPILE_ARGS = {
     'cxx':[ '-I{}/src'.format(KALDI_ROOT),
@@ -67,7 +68,7 @@ with open('./AUTHORS') as ipf:
     AUTHOR_STR = ','.join(AUTHORS)
 
 LICENSE = 'Apache 2.0'
-VERSION = '0.2.30.7'
+VERSION = '0.2.30.14'
 
 setup(name=PACKAGE_NAME,
       version=VERSION,
