@@ -3,18 +3,8 @@
 
 import random
 from collections import OrderedDict
-import logging
-from dataclasses import dataclass
-from librosa.core.constantq import __num_two_factors
 import torch
-import torch.nn as nn
-from torch.nn.utils import clip_grad_value_
-import torch.optim as optim
 from _pkwrap import kaldi
-from collections import defaultdict
-import librosa
-import subprocess
-import io
 
 # take a scp file
 class ChainExample(torch.utils.data.Dataset):
