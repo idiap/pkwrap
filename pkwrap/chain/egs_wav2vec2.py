@@ -97,7 +97,6 @@ class Wav2vec2EgsDataset(torch.utils.data.Dataset):
         # we may need to return wav and normalized fst instead
         return self.egs_holder[i]
 
-    # TODO: test this function
     def prepare_egs(self, egs_folder, cegs_index):
         # egs file is wav.scp file
         egs_file = "{}/egs.{}.ark".format(egs_folder, cegs_index)
