@@ -93,42 +93,6 @@ class Wav2vec2EgsDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         return self.egs_holder[idx]
 
-    # TODO: test this function
-    def process_egs(self, egs):
-        """Given an egs of type EgsInfo return a supervision
-
-        This function is exposed so that someone can override its functionality easily
-
-        Args:
-            egs: an object of type EgsInfo
-        """
-        min_diff = 100
-        len_extend_context = 0
-        # first read the wavfile
-        try:
-            p = subprocess.Popen(egs.wav, stdout=subprocess.PIPE)
-            samples, sampling_rate = librosa.load(io.BytesIO(p.communicate()[0]), sr=self.sampling_rate)
-            samples = samples.reshape(1, -1)
-        except:
-            raise IOError("Error processing {}".format(egs.name))
-        duration = samples.shape[1]/sampling_rate
-        if duration not in self.allowed_durations:
-            raise ValueError("Cannot find duration for {}".format(egs.name))
-        num_samples = samples.shape[1]
-        num_output_frames = egs.num_output_frames
-        fst = kaldi.fst.StdVectorFst()
-        kaldi.fst.ReadFstKaldi(egs.fst, fst)
-        supervision = kaldi.chain.Supervision()
-        # TODO: make sure transition model is loaded
-        if not kaldi.chain.TrainingGraphToSupervisionE2e(fst, self.trans_mdl, num_output_frames, supervision):
-            raise Exception("Cannot convert fst to supervision for {}".format(egs.name))
-        # TODO: add num_states function to Fst
-        if self.normalization_fst is not None and self.normalization_fst.num_states() > 0:
-            if not kaldi.chain.AddWeightToSupervisionFst(self.normalization_fst, supervision):
-                logging.warning("FST was empty for utterance {}".format(egs.name))
-        return supervision
-
-
     def __item__(self, i):
         # we may need to return wav and normalized fst instead
         return self.egs_holder[i]
