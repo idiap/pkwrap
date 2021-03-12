@@ -502,7 +502,7 @@ kaldi::chain::Supervision GetSupervisionFromEgs(kaldi::nnet3::NnetChainExample &
 // You may obtain a copy of the License at
 //
 //  http://www.apache.org/licenses/LICENSE-2.0
-void MergeSupervisionE2e(const std::vector<const kaldi::chain::Supervision> &input,
+void MergeSupervisionE2e(const std::vector<kaldi::chain::Supervision> &input,
                           kaldi::chain::Supervision &output_supervision) {
   output_supervision.e2e_fsts.clear();
   output_supervision.e2e_fsts.reserve(input.size());
@@ -518,7 +518,5 @@ void MergeSupervisionE2e(const std::vector<const kaldi::chain::Supervision> &inp
     // TODO: check if input[i].frames_per_sequence is the same as others
     output_supervision.e2e_fsts.push_back(input[i].e2e_fsts[0]);
   }
-  output_supervision->alignment_pdfs.clear();
-  // The program nnet3-chain-acc-lda-stats works on un-merged egs,
-  // and there is no need to support merging of 'alignment_pdfs'
+  output_supervision.alignment_pdfs.clear();
 }
