@@ -168,6 +168,7 @@ torch::Tensor GetFeaturesFromCompressedEgs(kaldi::nnet3::NnetChainExample &egs);
 torch::Tensor GetIvectorsFromEgs(const kaldi::nnet3::NnetChainExample &egs);
 int32 GetFramesPerSequence(const kaldi::nnet3::NnetChainExample &egs);
 kaldi::chain::Supervision GetSupervisionFromEgs(kaldi::nnet3::NnetChainExample &egs);
-void MergeSupervisionE2e(const std::vector<kaldi::chain::Supervision> &input,
+bool MergeSupervisionE2e(const std::vector<kaldi::chain::Supervision> &input,
                           kaldi::chain::Supervision &output_supervision);
+void SaveSupervision(std::string filename, kaldi::chain::Supervision sup, bool binary);
 #endif

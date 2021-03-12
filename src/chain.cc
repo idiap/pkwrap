@@ -502,21 +502,38 @@ kaldi::chain::Supervision GetSupervisionFromEgs(kaldi::nnet3::NnetChainExample &
 // You may obtain a copy of the License at
 //
 //  http://www.apache.org/licenses/LICENSE-2.0
-void MergeSupervisionE2e(const std::vector<kaldi::chain::Supervision> &input,
+bool MergeSupervisionE2e(const std::vector<kaldi::chain::Supervision> &input,
                           kaldi::chain::Supervision &output_supervision) {
   output_supervision.e2e_fsts.clear();
   output_supervision.e2e_fsts.reserve(input.size());
-  int32 frames_per_sequence = input[0].frames_per_sequence,
-      num_seqs = input.size();
-  // TODO: raise Exception if input is empty
+  output_supervision.num_sequences = 0;
+  int32 num_seqs = input.size();
   if(num_seqs == 0) {
-      return;
+      return true;
   }
+  int32 frames_per_sequence = input[0].frames_per_sequence;
+  output_supervision.frames_per_sequence = frames_per_sequence;
+  output_supervision.weight = 1.0;
+  output_supervision.label_dim = input[0].label_dim;
+  // TODO: raise Exception if input is empty
   for (int32 i = 0; i < num_seqs; i++) {
     output_supervision.num_sequences++;
     // TODO: check if input[i]->e2e_fsts.size() is 1
     // TODO: check if input[i].frames_per_sequence is the same as others
+    if(input[i].e2e_fsts.size()>1) {
+        std::cerr << "pkwrap:: in MergeSupervisionE2e, input fst is already merged" << std::endl;
+        return false;
+    }
+    if(frames_per_sequence != input[i].frames_per_sequence) {
+        std::cerr << "pkwrap:: in MergeSupervisionE2e, input fst is already merged" << std::endl;
+        return false;
+    }
     output_supervision.e2e_fsts.push_back(input[i].e2e_fsts[0]);
   }
   output_supervision.alignment_pdfs.clear();
+  return true;
+}
+
+void SaveSupervision(std::string filename, kaldi::chain::Supervision sup, bool binary) {
+    kaldi::WriteKaldiObject(sup, filename, binary);
 }

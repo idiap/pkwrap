@@ -85,7 +85,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
 
     py::class_<kaldi::nnet3::NnetChainExample>(chain, "NnetChainExample");
     py::class_<kaldi::chain::Supervision>(chain, "Supervision")
-        .def(py::init<>());
+        .def(py::init<>())
+        .def("Check", &kaldi::chain::Supervision::Check);
     chain.def("TrainingGraphToSupervisionE2e", &kaldi::chain::TrainingGraphToSupervisionE2e);
     chain.def("AddWeightToSupervisionFst", &kaldi::chain::AddWeightToSupervisionFst);
 
@@ -108,6 +109,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     chain.def("GetSupervisionFromEgs", &GetSupervisionFromEgs);
     chain.def("PrintSupervisionInfoE2E", &PrintSupervisionInfoE2E);
     chain.def("MergeSupervisionE2e", &MergeSupervisionE2e);
+    chain.def("SaveSupervision", &SaveSupervision);
 
     auto fst = kaldi_module.def_submodule("fst");
     py::class_<fst::StdVectorFst >(fst, "StdVectorFst")

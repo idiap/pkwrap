@@ -2,6 +2,7 @@
 #  Written by Srikanth Madikeri <srikanth.madikeri@idiap.ch>
 
 import logging
+import os
 import torch
 import numpy as np
 from _pkwrap import kaldi
@@ -10,7 +11,6 @@ from collections import defaultdict
 import soundfile
 import subprocess
 import io
-import time
 import random
 
 class EgsInfo:
@@ -35,22 +35,19 @@ def prepare_e2e_minibatch(batch):
     # load the audio
     if not batch:
         return None, None
-    start = time.time()
     batch_size = len(batch)
     feat_list = []
-    for idx, egs in enumerate(batch[1:]):
+    devnull = open(os.devnull, 'w')
+    for egs in batch:
         try:
-            p = subprocess.Popen(' '.join(egs.wav), stdout=subprocess.PIPE, shell=True)
-            #samples, _ = librosa.load(io.BytesIO(p.communicate()[0]))
+            p = subprocess.Popen(' '.join(egs.wav), stdout=subprocess.PIPE, shell=True, stderr=devnull)
             samples, _ = soundfile.read(io.BytesIO(p.communicate()[0]))
             feat_list.append(samples)
         except Exception as e:
             raise IOError("Error processing {}".format(egs.name))
     merged_sup = kaldi.chain.Supervision()
     kaldi.chain.MergeSupervisionE2e([egs.supervision for egs in batch], merged_sup)
-    feats_torch = torch.tensor(feat_list)
-    end_time = time.time()
-    print("Duration: {}".format(end_time-start))
+    feats_torch = torch.tensor(feat_list, dtype=torch.float32)
     return feats_torch, merged_sup
 
 class Wav2vec2BatchSampler(torch.utils.data.BatchSampler):
