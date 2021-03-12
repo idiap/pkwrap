@@ -11,6 +11,7 @@ import soundfile
 import subprocess
 import io
 import time
+import random
 
 class EgsInfo:
 
@@ -70,7 +71,7 @@ class Wav2vec2BatchSampler(torch.utils.data.BatchSampler):
                 yield prepare_e2e_minibatch(batch_by_length[l])
 
 class Wav2vec2EgsDataset(torch.utils.data.Dataset):
-    def __init__(self, egs_folder, cegs_idx, transition_model_filename, normalization_fst_rxfilename, sampling_rate=16000, transition_model_binary_mode=True):
+    def __init__(self, egs_folder, cegs_idx, transition_model_filename, normalization_fst_rxfilename, sampling_rate=16000, transition_model_binary_mode=True, shuffle=False):
         """instantiates a Pytorch Dataset for E2E training
 
         Args:
@@ -86,6 +87,8 @@ class Wav2vec2EgsDataset(torch.utils.data.Dataset):
         kaldi.fst.ReadFstKaldi(normalization_fst_rxfilename, self.normalization_fst)
         self.sampling_rate = sampling_rate
         self.prepare_egs(egs_folder, cegs_idx)
+        if shuffle:
+            random.shuffle(self.egs_holder)
 
     def __len__(self):
         return len(self.egs_holder)
