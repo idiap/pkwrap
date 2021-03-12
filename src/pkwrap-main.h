@@ -107,8 +107,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     chain.def("GetFramesPerSequence", &GetFramesPerSequence);
     chain.def("GetSupervisionFromEgs", &GetSupervisionFromEgs);
     chain.def("PrintSupervisionInfoE2E", &PrintSupervisionInfoE2E);
-    chain.def("MergeSupervision", &MergeSupervision);
-    chain.def("MergeSupervisionE2e", &kaldi::chain::MergeSupervisionE2e);
+    chain.def("MergeSupervisionE2e", &MergeSupervisionE2e);
 
     auto fst = kaldi_module.def_submodule("fst");
     py::class_<fst::StdVectorFst >(fst, "StdVectorFst")
