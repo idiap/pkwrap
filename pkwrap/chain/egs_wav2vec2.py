@@ -49,7 +49,7 @@ def prepare_e2e_minibatch(batch):
     merged_sup = kaldi.chain.Supervision()
     kaldi.chain.MergeSupervisionE2e([egs.supervision for egs in batch], merged_sup)
     feats_torch = torch.tensor(feat_list, dtype=torch.float32, requires_grad=False)
-    return feats_torch, merged_sup, [egs.name for egs in batch]
+    return feats_torch, merged_sup
 
 class Wav2vec2BatchSampler(torch.utils.data.BatchSampler):
     """An extension of BatchSampler to handle raw egs"""
