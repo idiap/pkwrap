@@ -94,7 +94,6 @@ class KaldiChainObjfFunction(torch.autograd.Function):
                 )
             )
             ctx.save_for_backward(nnet_deriv, xent_deriv, torch.tensor(opts.xent_regularize, requires_grad=False))
-            logging.info("HERE xent_regularize is {}".format(opts.xent_regularize))
         else:
             kaldi.chain.ComputeChainObjfAndDerivNoXent(
                 opts,
