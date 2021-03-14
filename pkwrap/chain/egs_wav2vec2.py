@@ -7,7 +7,7 @@ import torch
 import numpy as np
 from _pkwrap import kaldi
 from collections import defaultdict
-#import librosa
+# import librosa
 import soundfile
 import subprocess
 import io
@@ -42,13 +42,14 @@ def prepare_e2e_minibatch(batch):
         try:
             p = subprocess.Popen(' '.join(egs.wav), stdout=subprocess.PIPE, shell=True, stderr=devnull)
             samples, _ = soundfile.read(io.BytesIO(p.communicate()[0]))
+            # samples, _ = librosa.load(io.BytesIO(p.communicate()[0]), sr=16000)
             feat_list.append(samples)
         except Exception as e:
             raise IOError("Error processing {}".format(egs.name))
     merged_sup = kaldi.chain.Supervision()
     kaldi.chain.MergeSupervisionE2e([egs.supervision for egs in batch], merged_sup)
-    feats_torch = torch.tensor(feat_list, dtype=torch.float32)
-    return feats_torch, merged_sup
+    feats_torch = torch.tensor(feat_list, dtype=torch.float32, requires_grad=False)
+    return feats_torch, merged_sup, [egs.name for egs in batch]
 
 class Wav2vec2BatchSampler(torch.utils.data.BatchSampler):
     """An extension of BatchSampler to handle raw egs"""
@@ -161,6 +162,11 @@ class Wav2vec2EgsDataset(torch.utils.data.Dataset):
                     skipped += 1
                     continue
                 this_egs_info = EgsInfo(uttname, utt2wav[uttname], fstscp, utt2len[uttname])
+                if kaldi.chain.FindMinimumLengthPathFromFst(this_egs_info.fst) > this_egs_info.num_output_frames:
+                    logging.warning("get_egs_holder, {} has more labels than frames".format(this_egs_info.name))
+                    skipped += 1
+                    continue
+
                 this_egs_info.create_supervision(self.transition_model)
                 this_egs_info.normalize_supervision(self.normalization_fst)
                 egs_holder.append(this_egs_info)

@@ -110,6 +110,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     chain.def("PrintSupervisionInfoE2E", &PrintSupervisionInfoE2E);
     chain.def("MergeSupervisionE2e", &MergeSupervisionE2e);
     chain.def("SaveSupervision", &SaveSupervision);
+    chain.def("FindMinimumLengthPathFromFst", &FindMinimumLengthPathFromFst);
 
     auto fst = kaldi_module.def_submodule("fst");
     py::class_<fst::StdVectorFst >(fst, "StdVectorFst")

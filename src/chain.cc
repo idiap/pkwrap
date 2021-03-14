@@ -537,3 +537,41 @@ bool MergeSupervisionE2e(const std::vector<kaldi::chain::Supervision> &input,
 void SaveSupervision(std::string filename, kaldi::chain::Supervision sup, bool binary) {
     kaldi::WriteKaldiObject(sup, filename, binary);
 }
+
+
+// The following function is adapted from Kaldi's nnet3-chain-e2e-get-egs.cc.
+// Copying it here because in Kaldi, it is a static function.
+// Copyright      2015   Johns Hopkins University (author: Daniel Povey)
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//  http://www.apache.org/licenses/LICENSE-2.0
+int32 FindMinimumLengthPathFromFst(
+    const fst::StdVectorFst &fst) {
+  using fst::VectorFst;
+  using fst::StdArc;
+  using fst::StdVectorFst;
+  StdVectorFst distance_fst(fst);
+  // Modify distance_fst such that all the emitting
+  // arcs have cost 1 and others (and final-probs) a cost of zero
+  int32 num_states = distance_fst.NumStates();
+  for (int32 state = 0; state < num_states; state++) {
+    for (fst::MutableArcIterator<StdVectorFst> aiter(&distance_fst, state);
+         !aiter.Done(); aiter.Next()) {
+      const StdArc &arc = aiter.Value();
+      StdArc arc2(arc);
+      if (arc.olabel == 0)
+        arc2.weight = fst::TropicalWeight::One();
+      else
+        arc2.weight = fst::TropicalWeight(1.0);
+      aiter.SetValue(arc2);
+    }
+    if (distance_fst.Final(state) != fst::TropicalWeight::Zero())
+      distance_fst.Final(state) = fst::TropicalWeight::One();
+  }
+  VectorFst<StdArc> shortest_path;
+  fst::ShortestPath(distance_fst, &shortest_path);
+  return shortest_path.NumStates() - 1;
+}
