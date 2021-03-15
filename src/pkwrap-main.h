@@ -76,7 +76,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
 
     auto chain = kaldi_module.def_submodule("chain");
     // classes from Kaldi
-    py::class_<kaldi::chain::DenominatorGraph>(chain, "DenominatorGraph");
+    py::class_<kaldi::chain::DenominatorGraph>(chain, "DenominatorGraph")
+        .def("NumStates", &kaldi::chain::DenominatorGraph::NumStates);
     py::class_<kaldi::chain::ChainTrainingOptions>(chain, "ChainTrainingOptions")
         .def_readwrite("xent_regularize", &kaldi::chain::ChainTrainingOptions::xent_regularize)
         .def_readwrite("leaky_hmm_coefficient", &kaldi::chain::ChainTrainingOptions::leaky_hmm_coefficient)
