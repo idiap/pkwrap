@@ -17,7 +17,7 @@ model_file = local/chain/tuning/tdnnf_17l_ivec.py
 lang = data/lang_test_tgsmall
 lang_chain = data/lang_chain
 # trained from kaldi
-graph_dir = exp/chain/tdnnf_17l_jp/graph_test_tgsmall
+graph_dir = exp/chain/tdnnf_17l/graph_test_tgsmall
 
 # train params
 num_epochs = 4
