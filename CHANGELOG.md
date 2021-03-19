@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## [0.2.27.3] - 2021-03-19
+
+- librispeech i-vector recipe added
+- issues with decoding ChainModel when using i-vectors fixed
+
 ## [0.2.27.1] - 2021-02-11
 
 - Patch to enable compatibility with all recent Kaldi versions (since Apr 2020)
