@@ -270,6 +270,7 @@ def train_lfmmi_one_iter(model, egs_file, den_fst_path, training_opts, feat_dim,
                          frame_subsampling_factor=3,
                          optimizer = None,
                          e2e = False,
+                         use_ivector=False,
     ):
     """Run one iteration of LF-MMI training
 
@@ -307,6 +308,9 @@ def train_lfmmi_one_iter(model, egs_file, den_fst_path, training_opts, feat_dim,
         chunk_size = kaldi.chain.GetFramesPerSequence(merged_egs)*frame_subsampling_factor
         features = kaldi.chain.GetFeaturesFromEgs(merged_egs)
         features = features[:,frame_shift:frame_shift+chunk_size+left_context+right_context,:]
+        if use_ivector:
+            ivec = kaldi.chain.GetIvectorsFromEgs(merged_egs).repeat(1,features.shape[1],1)
+            features = torch.cat((features,ivec),-1)
         features = features.cuda()
         output, xent_output = model(features)
         sup = kaldi.chain.GetSupervisionFromEgs(merged_egs)
@@ -326,7 +330,8 @@ def compute_chain_objf(model, egs_file, den_fst_path, training_opts,
     minibatch_size="64", use_gpu=True, frame_shift=0, 
     left_context=0,
     right_context=0,
-    frame_subsampling_factor=3):
+    frame_subsampling_factor=3,
+    use_ivector=False):
     """Function to compute objective value from a minibatch, useful for diagnositcs.
     
     Args:
@@ -350,6 +355,9 @@ def compute_chain_objf(model, egs_file, den_fst_path, training_opts,
         chunk_size = kaldi.chain.GetFramesPerSequence(merged_egs)*frame_subsampling_factor
         features = kaldi.chain.GetFeaturesFromEgs(merged_egs)
         features = features[:,frame_shift:frame_shift+chunk_size+left_context+right_context,:]
+        if use_ivector:
+            ivec = kaldi.chain.GetIvectorsFromEgs(merged_egs).repeat(1,features.shape[1],1)
+            features = torch.cat((features,ivec),-1)
         features = features.cuda()
         output, xent_output = model(features)
         sup = kaldi.chain.GetSupervisionFromEgs(merged_egs)
@@ -391,6 +399,8 @@ class ChainModelOpts(TrainerOpts, DecodeOpts):
     feat_dim: int = 1
     context: int = 0
     frame_subsampling_factor: int = 3
+    ivector_dir: str = ''
+    use_ivector: bool = False
     
     def load_from_config(self, cfg):
         for key, value in cfg.items():
@@ -459,7 +469,7 @@ class ChainModel(nn.Module):
         """Run one iteration of LF-MMI training
 
         This is called by 
-        >>> self.train() 
+        >>> model.train() 
 
         It will probably be renamed as self.fit() since this seems to be
         the standard way other libraries call the training function.
@@ -490,7 +500,8 @@ class ChainModel(nn.Module):
             right_context=context,
             lr=chain_opts.lr,
             weight_decay=chain_opts.l2_regularize_factor,
-            frame_shift=chain_opts.frame_shift
+            frame_shift=chain_opts.frame_shift,
+            use_ivector = True if self.chain_opts.ivector_dir else False
         )
         torch.save(new_model.state_dict(), chain_opts.new_model)
 
@@ -519,6 +530,7 @@ class ChainModel(nn.Module):
             minibatch_size="1:64",
             left_context=chain_opts.context,
             right_context=chain_opts.context,
+            use_ivector = True if self.chain_opts.ivector_dir else False
         )
 
     @torch.no_grad()
@@ -546,22 +558,39 @@ class ChainModel(nn.Module):
         base_model = chain_opts.base_model
         try:
             model.load_state_dict(torch.load(base_model))
+            model.eval()
         except Exception as e:
             logging.error(e)
             logging.error("Cannot load model {}".format(base_model))
             quit(1)
         # TODO(srikanth): make sure context is a member of chain_opts
         context = chain_opts.context
-        model.eval()
         writer_spec = "ark,t:{}".format(chain_opts.decode_output)
         writer = script_utils.feat_writer(writer_spec)
+        use_ivector = self.chain_opts.ivector_dir or self.chain_opts.use_ivector
+        if use_ivector and not self.chain_opts.ivector_dir:
+            logging.error("Use_ivector set but ivector_dir option is empty")
+            raise ValueError
+        elif use_ivector and self.chain_opts.ivector_dir:
+            ivector_dir = self.chain_opts.ivector_dir
+            ivector_scp = "scp:{}/ivector_online.scp".format(ivector_dir)
+            ivector_reader = kaldi.matrix.RandomAccessBaseFloatMatrixReader(ivector_scp)
+            ivector_period = script_utils.read_single_param_file(os.path.join(ivector_dir, 'ivector_period'))
+
         for key, feats in script_utils.feat_reader_gen(chain_opts.decode_feats):
+            if use_ivector:
+                ivector_feats = kaldi.matrix.KaldiMatrixToTensor(ivector_reader.Value(key))
+                T = feats.shape[0]
+                ivector_feats = ivector_feats.repeat_interleave(ivector_period, dim=0)[:T,:]
+                feats = torch.cat([feats, ivector_feats], dim=1)
+
             feats_with_context = matrix.add_context(feats, context, context).unsqueeze(0)
             post, _ = model(feats_with_context)
             post = post.squeeze(0)
             writer.Write(key, kaldi.matrix.TensorToKaldiMatrix(post))
             logging.info("Wrote {}".format(key))
         writer.Close()
+        return self
 
     def context(self):
         """Find context by brute force
@@ -584,15 +613,17 @@ class ChainModel(nn.Module):
               found = []
               for chunk_len, output_len in chunk_sizes:
                   feat_len = chunk_len+left_context+right_context
-                  assert feat_len > 0
+                  y = None
                   try:
                       test_feats = torch.zeros(32, feat_len, feat_dim)
                       y = model(test_feats)
                   except Exception as e:
+                      logging.error("Exception occurred when finding context")
+                      logging.error(e)
                       visited[left_context] += 1
                       if visited[left_context] > 10:
                           break
-                  if y[0].shape[1] == output_len:
+                  if y is not None and y[0].shape[1] == output_len:
                       found.append(True)
                   else:
                       found.append(False)
@@ -601,8 +632,8 @@ class ChainModel(nn.Module):
                       self.save_context(left_context)
                       return
               left_context += 1
-              if left_context >= 100:
-                  raise NotImplementedError("more than context of 100")
+              if left_context >= 1000:
+                  raise NotImplementedError("more than context of 1000")
           raise Exception("No context found")
 
     def save_context(self, value):
@@ -655,6 +686,8 @@ class ChainModel(nn.Module):
         parser.add_argument("--decode-output", default="-", type=str)
         parser.add_argument("--decode-iter", default="final", type=str)
         parser.add_argument("--frame-shift", default=0, type=int)
+        parser.add_argument("--ivector-dir", default='', type=str)
+        parser.add_argument("--use-ivector", default=False, type=str)
         parser.add_argument("base_model")
         args = parser.parse_args()
         return args
@@ -679,15 +712,18 @@ class ChainModel(nn.Module):
         moving_average.load_state_dict(torch.load(base_models[0]))
         moving_average.cuda()
         best_mdl = moving_average
+        # use ivector if at least one of them is set
+        use_ivector = self.chain_opts.ivector_dir or self.chain_opts.use_ivector
         compute_objf = lambda mdl: compute_chain_objf(
             mdl,
             chain_opts.egs, 
             den_fst_path, 
             training_opts,
-            minibatch_size="1:64", # TODO: this should come from a config
+            minibatch_size="64", # TODO: this should come from a config
             left_context=chain_opts.context,
             right_context=chain_opts.context,
             frame_shift=chain_opts.frame_shift,
+            use_ivector = use_ivector
         )
 
         _, init_objf = compute_objf(moving_average)
