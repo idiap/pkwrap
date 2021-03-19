@@ -29,7 +29,6 @@ lr_initial = 0.00015
 lr_final = 0.000015
 diagnostics_interval = 10
 minibatch_size = 64
-train_stage = 528
 
 [test]
 test_set = data/dev_other_hires
