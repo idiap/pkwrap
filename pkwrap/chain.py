@@ -465,6 +465,10 @@ class ChainModel(nn.Module):
         model = self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
         torch.save(model.state_dict(), self.chain_opts.base_model)
 
+    def get_optimizer(self):
+        """Override this function to set an optimizer different from SGD"""
+        return None
+
     def train(self):
         """Run one iteration of LF-MMI training
 
@@ -501,7 +505,8 @@ class ChainModel(nn.Module):
             lr=chain_opts.lr,
             weight_decay=chain_opts.l2_regularize_factor,
             frame_shift=chain_opts.frame_shift,
-            use_ivector = True if self.chain_opts.ivector_dir else False
+            use_ivector = True if self.chain_opts.ivector_dir else False,
+            optimizer = self.get_optimizer()
         )
         torch.save(new_model.state_dict(), chain_opts.new_model)
 
