@@ -372,9 +372,10 @@ def train():
                     os.path.join(dirname, "{}.pt".format(iter_no+1)),
                 ])
             # remove old model
-            if iter_no >= 20:
+            if iter_no >= 20 and (iter_no-10)%trainer_opts.checkpoint_interval != 0:
                 mdl = os.path.join(dirname, "{}.pt".format(iter_no-10))
-                pkwrap.script_utils.run(["rm", mdl])
+                if os.path.isfile(mdl):
+                    pkwrap.script_utils.run(["rm", mdl])
         # do final model combination
         model_list = [
                 os.path.join(dirname, f"{i}.pt")
@@ -485,6 +486,13 @@ def train():
             graph_dir,
             out_dir
         ])
+        logging.info(f"Printing best WER...")
+        pkwrap.script_utils.run(" ".join([
+            "cat",
+            "{}/wer*".format(out_dir),
+            "|",
+            "utils/best_wer.sh"
+        ]), shell=True)
 
 if __name__ == '__main__':
     train()
