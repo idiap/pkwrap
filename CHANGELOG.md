@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## [0.2.28.2] - 2021-04-19
+
+- pytorch 1.8.1 and CUDA 11.1 compatibility tested
+
 ## [0.2.27.3] - 2021-03-19
 
 - librispeech i-vector recipe added

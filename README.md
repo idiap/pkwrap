@@ -39,9 +39,15 @@ was not efficient (the general route afaik would be Tensor GPU -> Tensor CPU -> 
 ------------------------------------
 Installation
 ------------------------------------
-**ATTENTION!!!**: Make sure that your pytorch environment is loaded before following the rest of the instructions.
+Pkwrap has been tested with the following pytorch and CUDA libraries
 
-1. Activate your pytorch environment
+| Pytorch | CUDA       |
+| ------- | ---------- |
+| 1.6     | 9.2, 10.2  |
+| 1.7     | 10.2       |
+| 1.8     | 10.2, 11.1 |
+
+1. Activate your pytorch environment.
 2. Compile Kaldi with `CXXFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"`.
 3. Set ``KALDI_ROOT`` and optionally ``MKL_ROOT`` in the environment. Note: in the future this will be made easier with autoconf.
 4. Run ``make``
@@ -53,7 +59,7 @@ Installation
 ------------------------------------
 Usage
 ------------------------------------
-Before importing do check if Kaldi libraries used to compile the package are accessible by python.
+Before importing do check if Kaldi libraries used to compile the package are accessible in your environment.
 Otherwise, it should be added to ``$LD_LIBRARY_PATH`` as follows
 
 ```
