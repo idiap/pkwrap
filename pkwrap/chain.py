@@ -396,7 +396,7 @@ class ChainModelOpts(TrainerOpts, DecodeOpts):
     minibatch_size: str = "32"
     frame_shift: int = 0
     output_dim: int = 1
-    feat_dim: int = 1
+    feat_dim: int = 40
     context: int = 0
     frame_subsampling_factor: int = 3
     ivector_dir: str = ''
@@ -470,6 +470,9 @@ class ChainModel(nn.Module):
         return None
         
     def initialize_model(self):
+        logging.info("Initializing with {} {}".format(
+            self.chain_opts.feat_dim, self.chain_opts.output_dim
+        ))
         return self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
 
     def load_base_model(self, model):
@@ -574,7 +577,6 @@ class ChainModel(nn.Module):
             logging.error(e)
             logging.error("Cannot load model {}".format(base_model))
             quit(1)
-        # TODO(srikanth): make sure context is a member of chain_opts
         context = chain_opts.context
         writer_spec = "ark,t:{}".format(chain_opts.decode_output)
         writer = script_utils.feat_writer(writer_spec)
@@ -612,8 +614,6 @@ class ChainModel(nn.Module):
         logging.warning("context function called. it only works for frame_subsampling_factor=3")
         visited = Counter()
         with torch.no_grad():
-          feat_dim = 40
-          num_pdfs = 300 
           model = self.initialize_model()
           chunk_sizes = [(150,50), (50, 17), (100, 34), (10, 4), (20, 7)]
           frame_shift = 0
