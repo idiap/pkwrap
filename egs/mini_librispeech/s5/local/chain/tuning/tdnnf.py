@@ -16,6 +16,8 @@ import torch.nn as nn
 import pkwrap
 from pkwrap.nn import TDNNFBatchNorm, NaturalAffineTransform
 from pkwrap.chain import ChainModel
+import logging
+logging.basicConfig(level=logging.DEBUG)
 
 
 class Net(nn.Module):
