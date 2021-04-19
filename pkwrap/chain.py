@@ -470,7 +470,7 @@ class ChainModel(nn.Module):
         return None
         
     def initialize_model(self):
-        logging.info("Initializing with {} {}".format(
+        logging.info("Initializing with feat_dim={} output_dim={}".format(
             self.chain_opts.feat_dim, self.chain_opts.output_dim
         ))
         return self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
