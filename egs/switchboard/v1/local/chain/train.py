@@ -22,22 +22,26 @@ import logging
 logging.basicConfig(level=logging.DEBUG, format='pkwrap %(levelname)s: %(message)s')
 
 
-def run_diagnostics(dirname, model_file, iter_no, egs_file, job_cmd, diagnostic_name='valid'):
+def run_diagnostics(dirname, model_file, iter_no, egs_file, job_cmd, diagnostic_name='valid', ivector_dir=''):
     """
         sub a single diagnostic job and let ThreadPoolExecutor monitor its progress
     """
     log_file = "{}/log/compute_prob_{}.{}.log".format(dirname, diagnostic_name, iter_no)
+    ivector_opts = []
+    if ivector_dir:
+        ivector_opts = ["--ivector-dir", ivector_dir]
     process_out = subprocess.run([*job_cmd.split(),
                 log_file,
                 model_file,
                 "--dir", dirname,
                 "--mode", "diagnostic",
                 "--egs", "ark:{}".format(egs_file),
+                *ivector_opts,
                 os.path.join(dirname, "{}.pt".format(iter_no))])
     return process_out.returncode
 
 
-def submit_diagnostic_jobs(dirname, model_file, iter_no, egs_dir, job_cmd):
+def submit_diagnostic_jobs(dirname, model_file, iter_no, egs_dir, job_cmd, ivector_dir=''):
     job_pool = []
     with ThreadPoolExecutor(max_workers=2) as executor:
         for diagnostic_name in ['train', 'valid']:
@@ -49,17 +53,21 @@ def submit_diagnostic_jobs(dirname, model_file, iter_no, egs_dir, job_cmd):
                 iter_no,
                 egs_file,
                 job_cmd,
-                diagnostic_name
+                diagnostic_name,
+                ivector_dir=ivector_dir,
             )
             job_pool.append(p)
     return job_pool
 
 def run_job(num_jobs, job_id, dirname, iter_no, model_file, lr, frame_shift, egs_dir,
-    num_archives, num_archives_processed, minibatch_size, job_cmd):
+    num_archives, num_archives_processed, minibatch_size, job_cmd, ivector_dir=''):
     """
         sub a single job and let ThreadPoolExecutor monitor its progress
     """
     log_file = "{}/log/train.{}.{}.log".format(dirname, iter_no, job_id)
+    ivector_opts = []
+    if ivector_dir:
+        ivector_opts = ['--ivector-dir', ivector_dir]
     process_out = subprocess.run([*job_cmd.split(),
                 log_file,
                 model_file,
@@ -71,6 +79,7 @@ def run_job(num_jobs, job_id, dirname, iter_no, model_file, lr, frame_shift, egs
                 "--l2-regularize-factor", str(1.0/num_jobs),
                 "--minibatch-size", minibatch_size,
                 "--new-model", os.path.join(dirname, "{}.{}.pt".format(iter_no, job_id)),
+                *ivector_opts,
                 os.path.join(dirname, "{}.pt".format(iter_no))])
     return process_out.returncode
 
@@ -257,8 +266,20 @@ def train():
         'left_context': context,
         'right_context': context
     })
-    if not os.path.isfile(os.path.join(dirname, "feat_dim")):
-        shutil.copy(os.path.join(egs_dir,"info","feat_dim"), dirname)
+    feat_dim_filename = os.path.join(dirname, "feat_dim")
+    if not os.path.isfile(feat_dim_filename):
+        # if ivector_dim is present in egs_dir, add that to feat_dim
+        if os.path.isfile(os.path.join(egs_dir, 'info', 'ivector_dim')):
+            feat_dim = 0
+            with open(os.path.join(egs_dir,"info","feat_dim")) as ipf:
+                feat_dim = int(ipf.readline().strip())
+            with open(os.path.join(egs_dir,"info","ivector_dim")) as ipf:
+                feat_dim += int(ipf.readline().strip())
+            with open(feat_dim_filename, 'w') as opf:
+                opf.write('{}'.format(feat_dim))
+                opf.close()
+        else:
+            shutil.copy(os.path.join(egs_dir,"info","feat_dim"), dirname)
     # we start training with 
     num_archives = pkwrap.script_utils.get_egs_info(egs_dir)
     num_epochs = trainer_opts.num_epochs
@@ -310,7 +331,7 @@ def train():
             )
             diagnostic_job_pool = None
             if iter_no % trainer_opts.diagnostics_interval == 0:
-                diagnostic_job_pool = submit_diagnostic_jobs(dirname, model_file, iter_no, egs_dir, cuda_cmd)
+                diagnostic_job_pool = submit_diagnostic_jobs(dirname, model_file, iter_no, egs_dir, cuda_cmd, ivector_dir=trainer_opts.online_ivector_dir)
             logging.info("{} Running iter={} of {} with {} jobs and lr={:.6f}".format(
                 datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 iter_no,
@@ -325,7 +346,8 @@ def train():
                         p = executor.submit(run_job,num_jobs, job_id, dirname, iter_no,
                                         model_file, lr, frame_shift, 
                                         egs_dir, num_archives, num_archives_processed,
-                                        exp_cfg["minibatch_size"], cuda_cmd)
+                                        exp_cfg["minibatch_size"], cuda_cmd,
+                                        ivector_dir=trainer_opts.online_ivector_dir)
                         num_archives_processed += 1
                         job_pool.append(p)
                     for p in as_completed(job_pool):
@@ -350,9 +372,10 @@ def train():
                     os.path.join(dirname, "{}.pt".format(iter_no+1)),
                 ])
             # remove old model
-            if iter_no >= 20:
+            if iter_no >= 20 and (iter_no-10)%trainer_opts.checkpoint_interval != 0:
                 mdl = os.path.join(dirname, "{}.pt".format(iter_no-10))
-                pkwrap.script_utils.run(["rm", mdl])
+                if os.path.isfile(mdl):
+                    pkwrap.script_utils.run(["rm", mdl])
         # do final model combination
         model_list = [
                 os.path.join(dirname, f"{i}.pt")
@@ -361,7 +384,10 @@ def train():
         logging.info("Final model combination...")
         diagnostic_name = 'valid'
         egs_file = os.path.join(egs_dir, '{}_diagnostic.cegs'.format(diagnostic_name))
-        process_out = subprocess.run([
+        ivector_opts = []
+        if trainer_opts.online_ivector_dir:
+            ivector_opts = ["--use-ivector", "True"]
+        pkwrap.script_utils.run([
             *cuda_cmd.split(),
             "{}/log/combine.log".format(dirname),
             model_file,
@@ -369,6 +395,7 @@ def train():
             "--mode", "final_combination",
             "--new-model", os.path.join(dirname, "final.pt"),
             "--egs", "ark:{}".format(egs_file),
+            *ivector_opts,
             ",".join(model_list)
         ])
 
@@ -459,6 +486,13 @@ def train():
             graph_dir,
             out_dir
         ])
+        logging.info(f"Printing best WER...")
+        pkwrap.script_utils.run(" ".join([
+            "cat",
+            "{}/wer*".format(out_dir),
+            "|",
+            "utils/best_wer.sh"
+        ]), shell=True)
 
 if __name__ == '__main__':
     train()

@@ -19,9 +19,10 @@ local/chain/train.py
 
 ### RESULTS
 
-| Model | config | dev-clean | 
-| ---------- | ---------- | ---------- | 
-| TDNNF 17 layers with dropout | ``tdnnf_17l``| 6.8 |
+| Model | config | dev-clean (tgsmall) | (tglarge)  |
+| ---------- | ---------- | ---------- | ---------- |
+| TDNNF 17 layers with dropout | ``tdnnf_17l``| 6.8 | 4.2 |
+| + i-vectors | ``tdnnf_17l_ivec``| 5.6 | 3.8 |
 
 ## E2E Chain recipe
 

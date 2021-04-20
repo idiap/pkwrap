@@ -14,8 +14,8 @@ from torch.utils import cpp_extension
 import torch
 pytorch_version = torch.__version__
 pytorch_major_ver, pytorch_min_ver = list(map(int, pytorch_version.split('.')[:2]))
-if pytorch_major_ver != 1 or pytorch_min_ver > 7:
-    sys.stderr.write("We support pytorch version until 1.7 only\n")
+if pytorch_major_ver != 1 or pytorch_min_ver > 8:
+    sys.stderr.write("We support pytorch version until 1.8 only\n")
     quit(1)
 
 KALDI_ROOT = os.getenv('KALDI_ROOT')
@@ -66,7 +66,7 @@ with open('./AUTHORS') as ipf:
     AUTHOR_STR = ','.join(AUTHORS)
 
 LICENSE = 'Apache 2.0'
-VERSION = '0.2.27.2'
+VERSION = '0.2.28.2'
 
 setup(name=PACKAGE_NAME,
       version=VERSION,

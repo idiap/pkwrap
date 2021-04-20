@@ -270,6 +270,7 @@ def train_lfmmi_one_iter(model, egs_file, den_fst_path, training_opts, feat_dim,
                          frame_subsampling_factor=3,
                          optimizer = None,
                          e2e = False,
+                         use_ivector=False,
     ):
     """Run one iteration of LF-MMI training
 
@@ -307,6 +308,9 @@ def train_lfmmi_one_iter(model, egs_file, den_fst_path, training_opts, feat_dim,
         chunk_size = kaldi.chain.GetFramesPerSequence(merged_egs)*frame_subsampling_factor
         features = kaldi.chain.GetFeaturesFromEgs(merged_egs)
         features = features[:,frame_shift:frame_shift+chunk_size+left_context+right_context,:]
+        if use_ivector:
+            ivec = kaldi.chain.GetIvectorsFromEgs(merged_egs).repeat(1,features.shape[1],1)
+            features = torch.cat((features,ivec),-1)
         features = features.cuda()
         output, xent_output = model(features)
         sup = kaldi.chain.GetSupervisionFromEgs(merged_egs)
@@ -326,7 +330,8 @@ def compute_chain_objf(model, egs_file, den_fst_path, training_opts,
     minibatch_size="64", use_gpu=True, frame_shift=0, 
     left_context=0,
     right_context=0,
-    frame_subsampling_factor=3):
+    frame_subsampling_factor=3,
+    use_ivector=False):
     """Function to compute objective value from a minibatch, useful for diagnositcs.
     
     Args:
@@ -350,6 +355,9 @@ def compute_chain_objf(model, egs_file, den_fst_path, training_opts,
         chunk_size = kaldi.chain.GetFramesPerSequence(merged_egs)*frame_subsampling_factor
         features = kaldi.chain.GetFeaturesFromEgs(merged_egs)
         features = features[:,frame_shift:frame_shift+chunk_size+left_context+right_context,:]
+        if use_ivector:
+            ivec = kaldi.chain.GetIvectorsFromEgs(merged_egs).repeat(1,features.shape[1],1)
+            features = torch.cat((features,ivec),-1)
         features = features.cuda()
         output, xent_output = model(features)
         sup = kaldi.chain.GetSupervisionFromEgs(merged_egs)
@@ -388,9 +396,11 @@ class ChainModelOpts(TrainerOpts, DecodeOpts):
     minibatch_size: str = "32"
     frame_shift: int = 0
     output_dim: int = 1
-    feat_dim: int = 1
+    feat_dim: int = 40
     context: int = 0
     frame_subsampling_factor: int = 3
+    ivector_dir: str = ''
+    use_ivector: bool = False
     
     def load_from_config(self, cfg):
         for key, value in cfg.items():
@@ -452,14 +462,27 @@ class ChainModel(nn.Module):
 
     def init(self):
         """Initialize the model and save it in chain_opts.base_model"""
-        model = self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
+        model = self.initialize_model()
         torch.save(model.state_dict(), self.chain_opts.base_model)
+
+    def get_optimizer(self, model):
+        """Override this function to set an optimizer different from SGD"""
+        return None
+        
+    def initialize_model(self):
+        logging.info("Initializing with feat_dim={} output_dim={}".format(
+            self.chain_opts.feat_dim, self.chain_opts.output_dim
+        ))
+        return self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
+
+    def load_base_model(self, model):
+        model.load_state_dict(torch.load(self.chain_opts.base_model))
 
     def train(self):
         """Run one iteration of LF-MMI training
 
         This is called by 
-        >>> self.train() 
+        >>> model.train() 
 
         It will probably be renamed as self.fit() since this seems to be
         the standard way other libraries call the training function.
@@ -469,8 +492,8 @@ class ChainModel(nn.Module):
         den_fst_path = os.path.join(chain_opts.dir, "den.fst")
 
         # load model
-        model = self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
-        model.load_state_dict(torch.load(chain_opts.base_model))
+        model = self.initialize_model()
+        self.load_base_model(model)
 
         training_opts = kaldi.chain.CreateChainTrainingOptions(
                 chain_opts.l2_regularize, 
@@ -490,7 +513,9 @@ class ChainModel(nn.Module):
             right_context=context,
             lr=chain_opts.lr,
             weight_decay=chain_opts.l2_regularize_factor,
-            frame_shift=chain_opts.frame_shift
+            frame_shift=chain_opts.frame_shift,
+            use_ivector = True if self.chain_opts.ivector_dir else False,
+            optimizer = self.get_optimizer(model),
         )
         torch.save(new_model.state_dict(), chain_opts.new_model)
 
@@ -501,8 +526,8 @@ class ChainModel(nn.Module):
         den_fst_path = os.path.join(chain_opts.dir, "den.fst")
 
 #           load model
-        model = self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
-        model.load_state_dict(torch.load(chain_opts.base_model))
+        model = self.initialize_model()
+        self.load_base_model(model)
         model.eval()
 
         training_opts = kaldi.chain.CreateChainTrainingOptions(
@@ -519,6 +544,7 @@ class ChainModel(nn.Module):
             minibatch_size="1:64",
             left_context=chain_opts.context,
             right_context=chain_opts.context,
+            use_ivector = True if self.chain_opts.ivector_dir else False
         )
 
     @torch.no_grad()
@@ -526,12 +552,12 @@ class ChainModel(nn.Module):
         chain_opts = self.chain_opts
         base_models = chain_opts.base_model.split(',')
         assert len(base_models)>0
-        model0 = self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
+        model0 = self.initialize_model()
         model0.load_state_dict(torch.load(base_models[0]))
         model_acc = dict(model0.named_parameters())
         for mdl_name in base_models[1:]:
-            this_mdl = self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
-            this_mdl.load_state_dict(torch.load(mdl_name))
+            this_mdl = self.initialize_model()
+            this_mdl.load_state_dict(torch.load(base_models[0]))
             for name, params in this_mdl.named_parameters():
                 model_acc[name].data.add_(params.data)
         weight = 1.0/len(base_models)
@@ -542,26 +568,42 @@ class ChainModel(nn.Module):
     @torch.no_grad()
     def infer(self):
         chain_opts = self.chain_opts
-        model = self.Net(chain_opts.feat_dim, chain_opts.output_dim)
+        model = self.initialize_model()
         base_model = chain_opts.base_model
         try:
-            model.load_state_dict(torch.load(base_model))
+            self.load_base_model(model)
+            model.eval()
         except Exception as e:
             logging.error(e)
             logging.error("Cannot load model {}".format(base_model))
             quit(1)
-        # TODO(srikanth): make sure context is a member of chain_opts
         context = chain_opts.context
-        model.eval()
         writer_spec = "ark,t:{}".format(chain_opts.decode_output)
         writer = script_utils.feat_writer(writer_spec)
+        use_ivector = self.chain_opts.ivector_dir or self.chain_opts.use_ivector
+        if use_ivector and not self.chain_opts.ivector_dir:
+            logging.error("Use_ivector set but ivector_dir option is empty")
+            raise ValueError
+        elif use_ivector and self.chain_opts.ivector_dir:
+            ivector_dir = self.chain_opts.ivector_dir
+            ivector_scp = "scp:{}/ivector_online.scp".format(ivector_dir)
+            ivector_reader = kaldi.matrix.RandomAccessBaseFloatMatrixReader(ivector_scp)
+            ivector_period = script_utils.read_single_param_file(os.path.join(ivector_dir, 'ivector_period'))
+
         for key, feats in script_utils.feat_reader_gen(chain_opts.decode_feats):
+            if use_ivector:
+                ivector_feats = kaldi.matrix.KaldiMatrixToTensor(ivector_reader.Value(key))
+                T = feats.shape[0]
+                ivector_feats = ivector_feats.repeat_interleave(ivector_period, dim=0)[:T,:]
+                feats = torch.cat([feats, ivector_feats], dim=1)
+
             feats_with_context = matrix.add_context(feats, context, context).unsqueeze(0)
             post, _ = model(feats_with_context)
             post = post.squeeze(0)
             writer.Write(key, kaldi.matrix.TensorToKaldiMatrix(post))
             logging.info("Wrote {}".format(key))
         writer.Close()
+        return self
 
     def context(self):
         """Find context by brute force
@@ -572,9 +614,7 @@ class ChainModel(nn.Module):
         logging.warning("context function called. it only works for frame_subsampling_factor=3")
         visited = Counter()
         with torch.no_grad():
-          feat_dim = 40
-          num_pdfs = 300 
-          model = self.Net(40, 300)
+          model = self.initialize_model()
           chunk_sizes = [(150,50), (50, 17), (100, 34), (10, 4), (20, 7)]
           frame_shift = 0
           left_context = 0
@@ -584,15 +624,17 @@ class ChainModel(nn.Module):
               found = []
               for chunk_len, output_len in chunk_sizes:
                   feat_len = chunk_len+left_context+right_context
-                  assert feat_len > 0
+                  y = None
                   try:
                       test_feats = torch.zeros(32, feat_len, feat_dim)
                       y = model(test_feats)
                   except Exception as e:
+                      logging.error("Exception occurred when finding context")
+                      logging.error(e)
                       visited[left_context] += 1
                       if visited[left_context] > 10:
                           break
-                  if y[0].shape[1] == output_len:
+                  if y is not None and y[0].shape[1] == output_len:
                       found.append(True)
                   else:
                       found.append(False)
@@ -601,8 +643,8 @@ class ChainModel(nn.Module):
                       self.save_context(left_context)
                       return
               left_context += 1
-              if left_context >= 100:
-                  raise NotImplementedError("more than context of 100")
+              if left_context >= 1000:
+                  raise NotImplementedError("more than context of 1000")
           raise Exception("No context found")
 
     def save_context(self, value):
@@ -655,6 +697,8 @@ class ChainModel(nn.Module):
         parser.add_argument("--decode-output", default="-", type=str)
         parser.add_argument("--decode-iter", default="final", type=str)
         parser.add_argument("--frame-shift", default=0, type=int)
+        parser.add_argument("--ivector-dir", default='', type=str)
+        parser.add_argument("--use-ivector", default=False, type=str)
         parser.add_argument("base_model")
         args = parser.parse_args()
         return args
@@ -674,20 +718,23 @@ class ChainModel(nn.Module):
                 chain_opts.xent_regularize,
         ) 
 
-        moving_average = self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
-        best_mdl =  self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
+        moving_average = self.initialize_model()
+        best_mdl =  self.initialize_model()
         moving_average.load_state_dict(torch.load(base_models[0]))
         moving_average.cuda()
         best_mdl = moving_average
+        # use ivector if at least one of them is set
+        use_ivector = self.chain_opts.ivector_dir or self.chain_opts.use_ivector
         compute_objf = lambda mdl: compute_chain_objf(
             mdl,
             chain_opts.egs, 
             den_fst_path, 
             training_opts,
-            minibatch_size="1:64", # TODO: this should come from a config
+            minibatch_size="64", # TODO: this should come from a config
             left_context=chain_opts.context,
             right_context=chain_opts.context,
             frame_shift=chain_opts.frame_shift,
+            use_ivector = use_ivector
         )
 
         _, init_objf = compute_objf(moving_average)
@@ -697,7 +744,7 @@ class ChainModel(nn.Module):
         num_accumulated = torch.Tensor([1.0]).reshape(1).cuda()
         best_num_to_combine = 1
         for mdl_name in base_models[1:]:
-            this_mdl = self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
+            this_mdl = self.initialize_model()
             logging.info("Combining model {}".format(mdl_name))
             this_mdl.load_state_dict(torch.load(mdl_name))
             this_mdl = this_mdl.cuda()
@@ -731,7 +778,7 @@ class ChainE2EModel(ChainModel):
             weight_decay=weight_decay
         )
         return optimizer
-        
+
     def train(self):
         """Run one iteration of LF-MMI training
 
@@ -747,8 +794,8 @@ class ChainE2EModel(ChainModel):
         den_fst_path = os.path.join(chain_opts.dir, "den.fst")
 
 #           load model
-        model = self.Net(self.chain_opts.feat_dim, self.chain_opts.output_dim)
-        model.load_state_dict(torch.load(chain_opts.base_model))
+        model = self.initialize_model()
+        self.load_base_model(model)
 
         training_opts = kaldi.chain.CreateChainTrainingOptions(
                 chain_opts.l2_regularize, 
