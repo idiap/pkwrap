@@ -1,23 +1,46 @@
-"""implementation of NG-SGD from Kaldi"""
+"""implementation of NG-SGD from Kaldi
+
+This is an implementation of Natural Gradient Descent based on what is available in Kaldi.
+It is reimplemented in pytorch to avoid using Kaldi's GPU libraries when using other toolkits
+that require compute-exclusive mode. Most of the implementation is based on Kaldi, while some
+vectorization is applied to avoid big for loops.
+"""
+
+# Copyright (c) 2020 Idiap Research Institute, http://www.idiap.ch/
+#  Written by Srikanth Madikeri <srikanth.madikeri@idiap.ch>
+
 from dataclasses import dataclass
 from typing import Sequence
 import torch
 from math import exp
 import logging
-import pdb
 
 # keeping this implementation in python for now. even if it is run, I don't
 # expect it to be run multiple times.
 # TOOD: shift it to C++ biniding
 def OrthogonalizeRows(M):
-    """Implementation of Gram-Schmidt"""
+    """Implementation of Gram-Schmidt orthognolization
+
+    The input matrix is orthogonalized in place. When nan or inf is produced
+    during the computation, the rows are reset with random values. This is done
+    at most 100 times at which point an Exception is raised.
+    
+    Args:
+        M: Torch Tensor
+
+    Returns:
+        bool: True when successfull, else raises an Exception
+
+    Raises:
+        Exception: when looping for more than 100 times.
+    """
     num_rows, num_cols = M.shape
     for i in range(num_rows):
         counter = 0
         while True:
             start_prod = M[i, :].pow(2.0).sum()
             if torch.isnan(start_prod) or torch.isinf(start_prod) or start_prod == 0.0:
-                M[i, :].randn()
+                M[i, :].normal_()
                 counter += 1
                 if counter > 100:
                     raise Exception("Loop detected while orthogonalizing matrix")
@@ -37,11 +60,27 @@ def OrthogonalizeRows(M):
             else:
                 M[i, :].mul_(1.0/end_prod.sqrt())
                 break
+    return True
 
 
 @dataclass
 class OnlineNaturalGradient:
-    """NGState value container"""
+    """NGState value container
+    
+    The state values are implemented using dataclass.
+
+    Attributes:
+        alpha (float): alpha value of the state (default 4.0)
+        num_samples_history: size of history (default 2000.0)
+        update_period (int): update W_t every update_period iterations only (default 4)
+        num_minibatches_history (int): minibatch history size (default 0)
+        epsilon (float): epsilon value used for updates (default 1.0e-10)
+        delta (float): delta value used for updates (default 5.0e-4)
+        frozen (bool): set when the state should not be updated (default False)
+        t (int): number of updates completed so far; starts from 0
+        rank (int): rank of the update
+        num_initial_updates (int): always update till 'num_initial_updates' (default 10)
+    """
     alpha: float = 4.0
     num_samples_history: float = 2000.0
     update_period: int = 4
@@ -55,10 +94,15 @@ class OnlineNaturalGradient:
     num_initial_updates: int = 10
 
     def __post_init__(self):
+        """Set d_t and W_t to None"""
         self.d_t = None
         self.W_t = None
 
     def init_orthonormal_special(self):
+        """initialize value of W_t
+        
+        Don't call this function directly. It is called by init_default.
+        """
         R = self.W_t
         num_rows, num_cols = R.shape
         R.zero_()
@@ -71,6 +115,13 @@ class OnlineNaturalGradient:
             R[r, cols[1:]] = normalizer
 
     def init_default(self, D, device=None):
+        """Initialize W_t and d_t
+        
+        This should be called only once. The rank is set to maximum of D-1.
+
+        Args:
+            D: dimension of input data
+        """
         if self.rank >= D:
             self.rank = D-1
         if self.rank == 0:
@@ -88,6 +139,10 @@ class OnlineNaturalGradient:
         self.t = 0
 
     def init(self, X):
+        """Iniitalize the values of W_t and d_t.
+
+        This function calls init_default. We may just merge them later.
+        """
         D = X.shape[-1]
         self.init_default(D, device=X.device)
         self.t = 1
@@ -100,15 +155,13 @@ class OnlineNaturalGradient:
 
     @torch.no_grad()
     def _precondition_directions_internal(self, X, initial_product):
+        """Internal function to precondition the input and gradients"""
         N, D = X.shape
         R = self.rank
         eta = self._compute_eta(N)
         W_t = self.W_t
         # H_t = X W_t^T
         H_t = X.mm(W_t.T)
-        # print("t, X", self.t, X)
-        # print("t, W_t", self.t, W_t)
-        # print("t, H_t", self.t, H_t)
         if self.t > self.num_initial_updates and (self.t-self.num_initial_updates) % self.update_period != 0:
             # X <- X - H_t W_t
             X.add_(H_t.mm(W_t), alpha=-1.0)
@@ -125,10 +178,8 @@ class OnlineNaturalGradient:
         inv_sqrt_e_t = self._compute_et(d_t, beta_t)[-1]
         # TODO: check if doing this on CPU is faster. Kaldi does that
         Z_t = self.compute_zt(N, inv_sqrt_e_t, K_t, L_t)
-        # print("Z_t ", self.t, Z_t)
         z_t_scale = Z_t.trace().clamp_min(1.0)
         Z_t = Z_t.mul(1.0/z_t_scale)
-        # print("Z_t ", self.t, Z_t.min(), Z_t.max(), X.min(), X.max(), K_t.min(), K_t.max(), L_t.min(), L_t.max())
         Z_t = Z_t.to(dtype=torch.float)
         eigvalues, U = Z_t.eig(eigenvectors=True)
         eigvalues_sorted = eigvalues[:,0].sort(descending=True)
@@ -142,10 +193,7 @@ class OnlineNaturalGradient:
         c_t_floor = torch.tensor((rho_t*(1-eta))**2, device=eigvalues.device, requires_grad=False)
         if any(eigvalues<c_t_floor):
             must_reorthogonalize = True
-        # print("Must reorth after flooring ", self.t, must_reorthogonalize)
-        # print("t reorth", self.t, must_reorthogonalize)
         eigvalues.clamp_min_(c_t_floor)
-        # print("t, X updated", self.t, X)
         sqrt_c_t = eigvalues.pow(0.5).cuda()
         rho_t1 = (1.0)/(D-R)*(eta/N*initial_product + (1-eta)*(D*rho_t+d_t.sum()) - sqrt_c_t.sum())
         d_t1 = sqrt_c_t - rho_t1
@@ -164,6 +212,7 @@ class OnlineNaturalGradient:
         return
 
     def _compute_Wt1(self, N, d_t1, rho_t1, U, sqrt_c_t, inv_sqrt_et, J_t):
+        """internal function to recompute W_t for next t"""
         d_t = self.d_t
         rho_t = self.rho
         W_t = self.W_t
@@ -183,23 +232,20 @@ class OnlineNaturalGradient:
         return W_t1
 
     def _reorthogonalize_Rt1(self, d_t1, rho_t1, W_t1, temp_O):
+        """recompute R_t for next t"""
         threshold = 1.0e-03
         R, D = W_t1.shape
         beta_t1 = OnlineNaturalGradient.get_beta(rho_t1, self.alpha, d_t1, D)
         e_t1, sqrt_e_t1, inv_sqrt_e_t1 = self._compute_et(d_t1, beta_t1)
         # a trick to re-use memory would be to re-use temp_O
-        # print("in reorth ", self.t, inv_sqrt_e_t1)
         temp_O.copy_(W_t1.mm(W_t1.T)*inv_sqrt_e_t1[:, None]*inv_sqrt_e_t1[None,:])
         # TODO: check if temp_O is unit matrix
         if _is_unit(temp_O):
             return
         Omat = temp_O.cpu()
-        # print("W_t1 ", self.t, W_t1)
-        # print("Omat1 ", self.t, Omat)
         cholesky_ok = True
         try:
             Omat_inv = Omat.cholesky().cholesky_inverse()
-            # print("Omat inv", self.t, Omat_inv)
             if Omat_inv.max() > 100.:
                 logging.warning("Cholesky out of range. Using Gram-Schmidt t={} {}".format(self.t, Omat_inv.max()))
                 raise Exception("Cholesky out of range. Using Gram-Schmidt")
@@ -221,6 +267,7 @@ class OnlineNaturalGradient:
             return
 
     def _compute_et(self, d_t, beta_t):
+        """return e_t, sqrt_e_t and inv_sqrt_e_t given d_t and beta_t"""
         D = d_t.shape[0]
         e_t = 1.0/(beta_t/d_t + 1.0)
         sqrt_e_t = e_t.pow(0.5)
@@ -229,21 +276,17 @@ class OnlineNaturalGradient:
 
     @staticmethod
     def get_beta(rho_t, alpha, d_t, D):
+        """beta = rho_t*(1+alpha) + alpha*d_t.sum()/D"""
         return rho_t*(1+alpha) + alpha*d_t.sum()/D
 
-    # keeping this public so that I can test it
     def compute_zt(self, N, inv_sqrt_e_t, K_t, L_t):
-        eta = self._compute_eta(N)
-        d_t = self.d_t
-        rho = self.rho
-        d_t_rho_t = d_t + rho
-        etaN = eta/N
-        eta1 = 1.0-eta
-        etaN_sq = etaN*etaN
-        eta1_sq = eta1*eta1
-        etaN_eta1 = etaN*eta1
+        """return new value of Z_t"""
+        eta, d_t, rho = self._compute_eta(N), self.d_t, self.rho
         R = d_t.shape[0]
-        # so far everything has been in 
+        d_t_rho_t = d_t + rho
+        etaN, eta1 = (eta/N, 1.0-eta)
+        etaN_sq, eta1_sq, etaN_eta1 = etaN*etaN, eta1*eta1, etaN*eta1
+        # so far everything has been in the device of the input.
         L_t_factor = L_t.cpu().to(torch.double)
         K_t_factor = K_t.cpu().to(torch.double)
         # we need to make sure L_t and K_t are symmetric!
@@ -251,8 +294,10 @@ class OnlineNaturalGradient:
         K_t_factor = K_t_factor + K_t_factor.T
         L_t_factor.mul_(0.5)
         K_t_factor.mul_(0.5)
-        inv_sqrt_e_t_cpu = inv_sqrt_e_t.cpu()
-        d_t_rho_t_cpu = d_t_rho_t.cpu()
+        # make sure other necessary variables are in CPU
+        inv_sqrt_e_t_cpu, d_t_rho_t_cpu = inv_sqrt_e_t.cpu(), d_t_rho_t.cpu()
+        # there are four factors in the original code. I split them here so that it is
+        # easier to see what's going on.
         factor1 = ((inv_sqrt_e_t_cpu*etaN_sq)[:, None] * K_t_factor)*inv_sqrt_e_t_cpu[None,:]
         factor2 = ((inv_sqrt_e_t_cpu*etaN_eta1)[:, None] * L_t_factor)*(inv_sqrt_e_t_cpu*d_t_rho_t_cpu)[None,:]
         factor3 = ((inv_sqrt_e_t_cpu*d_t_rho_t_cpu*etaN_eta1)[:, None] * L_t_factor)*(inv_sqrt_e_t_cpu)[None,:]
@@ -260,24 +305,20 @@ class OnlineNaturalGradient:
         # TODO: factor4 can be simplified, but need to check if it is benificial computationally
         factor4 = (eta1_sq*d_t_rho_t_cpu.pow(2.0)).diag()
         Z_t = factor1 + factor2 + factor3 + factor4
+        # TODO: avoid this by making sure factor2+3 is symmetric
         Z_t = (Z_t + Z_t.T).mul(0.5)
-        try:
-            assert torch.allclose(Z_t, Z_t.T)
-        except AssertionError:
-            print("Z_t is not symmetric in ", self.t)
-            # print("Z_t value is ", Z_t)
-            # print("is factor 1 symmetric", torch.allclose(factor1, factor1.T))
-            # print("is factor 2 symmetric", torch.allclose(factor2, factor2.T))
-            # print("is factor 3 symmetric", torch.allclose(factor3, factor3.T))
-            # print("is factor 4 symmetric", torch.allclose(factor4, factor4.T))
-            # print("is factor 2+3 symmetric", torch.allclose((factor2+factor3), (factor2.T+factor3.T)))
-            # print("is K_t symmetric", torch.allclose(K_t_factor, K_t_factor.T))
-            # print("is L_t symmetric", torch.allclose(L_t_factor, L_t_factor.T))
-
         return Z_t
 
     @torch.no_grad()
     def precondition_directions(self, X):
+        """Runs one step of preconditioning on X
+        
+        Args:
+            X: a two-dimensional matrix, usually input to the layer or grad_out
+
+        Returns:
+            None
+        """
         if self.t == 0:
             self.init(X)
             self.t = 0
@@ -293,9 +334,11 @@ class OnlineNaturalGradient:
         return scale
 
     def step(self):
+        """Increment t by 1"""
         self.t += 1
 
     def validate(self):
+        """Method to check if the state values are sane"""
         assert self.num_samples_history >0. and self.num_samples_history<=1e+06
         assert self.num_minibatches_history == 0 or self.num_minibatches_history > 1.0
         assert self.num_minibatches_history < 1e+06
@@ -306,6 +349,7 @@ class OnlineNaturalGradient:
 
     # TODO: implement caching
     def _compute_eta(self, N):
+        """return eta value given N"""
         if self.num_minibatches_history > 0.0:
             return 1.0/self.num_minibatches_history
         else:
@@ -313,6 +357,16 @@ class OnlineNaturalGradient:
             return min(0.9, 1.0 - exp(-N/self.num_samples_history))
 
 def _is_unit(symmetric_matrix):
+    """Check if a matrix is a Unit matrix
+
+    This is a private method for the moment.
+
+    Args:
+        symmetric_matrix: input is assumed to be a symmetric matrix
+
+    Returns:
+        bool: True if the matrix is Unit, False otherwise
+    """
     r = symmetric_matrix.shape[0]
     # TODO: much simpler implementation that doesn't require so much memory
     return torch.allclose(symmetric_matrix, torch.eye(r, r, dtype=symmetric_matrix.dtype, device=symmetric_matrix.device))
