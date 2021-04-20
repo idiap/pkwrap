@@ -1,9 +1,10 @@
 """implementation of NG-SGD from Kaldi
 
-This is an implementation of Natural Gradient Descent based on what is available in Kaldi.
-It is reimplemented in pytorch to avoid using Kaldi's GPU libraries when using other toolkits
-that require compute-exclusive mode. Most of the implementation is based on Kaldi, while some
-vectorization is applied to avoid big for loops.
+This is an implementation of Natural Gradient Descent based on what is
+available in Kaldi.  It is reimplemented in pytorch to avoid using Kaldi's GPU
+libraries when using other toolkits that require compute-exclusive mode. Most
+of the implementation is based on Kaldi, while some vectorization is applied to
+avoid big for loops.
 
 A sample recipe for minilibrispeech is in /egs/mini_librispeech/s5.
 """
@@ -12,10 +13,10 @@ A sample recipe for minilibrispeech is in /egs/mini_librispeech/s5.
 #  Written by Srikanth Madikeri <srikanth.madikeri@idiap.ch>
 
 from dataclasses import dataclass
-from typing import Sequence
 import torch
 from math import exp
 import logging
+
 
 # keeping this implementation in python for now. even if it is run, I don't
 # expect it to be run multiple times.
@@ -26,7 +27,7 @@ def OrthogonalizeRows(M):
     The input matrix is orthogonalized in place. When nan or inf is produced
     during the computation, the rows are reset with random values. This is done
     at most 100 times at which point an Exception is raised.
-    
+
     Args:
         M: Torch Tensor
 
@@ -45,12 +46,14 @@ def OrthogonalizeRows(M):
                 M[i, :].normal_()
                 counter += 1
                 if counter > 100:
-                    raise Exception("Loop detected while orthogonalizing matrix")
+                    raise Exception(
+                        "Loop detected while orthogonalizing matrix"
+                    )
                 continue
             # TODO: vectorize this loop
             for j in range(0, i):
-                # this product is useless. why 
-                prod = (M[j, :]*M[i,:]).sum()
+                # this product is useless. why
+                prod = (M[j, :]*M[i, :]).sum()
                 M[i, :].add_(M[j, :], alpha=-prod)
             end_prod = M[i, :].pow(2.0).sum()
             if end_prod <= 0.01 * start_prod:
@@ -68,7 +71,7 @@ def OrthogonalizeRows(M):
 @dataclass
 class OnlineNaturalGradient:
     """NGState value container
-    
+
     The state values are implemented using dataclass.
 
     Attributes:
@@ -92,7 +95,7 @@ class OnlineNaturalGradient:
     frozen: bool = False
     t: int = 0
     rho: float = -1e+10
-    rank:int = 40
+    rank: int = 40
     num_initial_updates: int = 10
 
     def __post_init__(self):
@@ -102,7 +105,7 @@ class OnlineNaturalGradient:
 
     def init_orthonormal_special(self):
         """initialize value of W_t
-        
+
         Don't call this function directly. It is called by init_default.
         """
         R = self.W_t
@@ -118,7 +121,7 @@ class OnlineNaturalGradient:
 
     def init_default(self, D, device=None):
         """Initialize W_t and d_t
-        
+
         This should be called only once. The rank is set to maximum of D-1.
 
         Args:
@@ -132,7 +135,7 @@ class OnlineNaturalGradient:
         self.rho = self.epsilon
         # TODO: decide the device
         if device is None:
-            device="cpu"
+            device = "cpu"
         self.d_t = torch.zeros(self.rank, device=device).add_(self.epsilon)
         self.W_t = torch.zeros(self.rank, D, device=device)
         self.init_orthonormal_special()
@@ -167,7 +170,7 @@ class OnlineNaturalGradient:
         if self.t > self.num_initial_updates and (self.t-self.num_initial_updates) % self.update_period != 0:
             # X <- X - H_t W_t
             X.add_(H_t.mm(W_t), alpha=-1.0)
-            return 
+            return
         J_t = H_t.T.mm(X)
         # TODO: compute LK together because in GPUs that would mean only one call
         L_t = W_t.mm(J_t.T)
@@ -184,7 +187,7 @@ class OnlineNaturalGradient:
         Z_t = Z_t.mul(1.0/z_t_scale)
         Z_t = Z_t.to(dtype=torch.float)
         eigvalues, U = Z_t.eig(eigenvectors=True)
-        eigvalues_sorted = eigvalues[:,0].sort(descending=True)
+        eigvalues_sorted = eigvalues[:, 0].sort(descending=True)
         # TODO: remove sorting. not really required
         eigvalues = eigvalues_sorted.values
         U = U[:, eigvalues_sorted.indices].cuda()
@@ -193,7 +196,7 @@ class OnlineNaturalGradient:
         condition_threshold = 1.0e+06
         must_reorthogonalize = eigvalues.max() > condition_threshold*eigvalues.min()
         c_t_floor = torch.tensor((rho_t*(1-eta))**2, device=eigvalues.device, requires_grad=False)
-        if any(eigvalues<c_t_floor):
+        if any(eigvalues < c_t_floor):
             must_reorthogonalize = True
         eigvalues.clamp_min_(c_t_floor)
         sqrt_c_t = eigvalues.pow(0.5).cuda()
@@ -235,12 +238,11 @@ class OnlineNaturalGradient:
 
     def _reorthogonalize_Rt1(self, d_t1, rho_t1, W_t1, temp_O):
         """recompute R_t for next t"""
-        threshold = 1.0e-03
         R, D = W_t1.shape
         beta_t1 = OnlineNaturalGradient.get_beta(rho_t1, self.alpha, d_t1, D)
         e_t1, sqrt_e_t1, inv_sqrt_e_t1 = self._compute_et(d_t1, beta_t1)
         # a trick to re-use memory would be to re-use temp_O
-        temp_O.copy_(W_t1.mm(W_t1.T)*inv_sqrt_e_t1[:, None]*inv_sqrt_e_t1[None,:])
+        temp_O.copy_(W_t1.mm(W_t1.T)*inv_sqrt_e_t1[:, None]*inv_sqrt_e_t1[None, :])
         # TODO: check if temp_O is unit matrix
         if _is_unit(temp_O):
             return
@@ -257,7 +259,7 @@ class OnlineNaturalGradient:
             temp_O.copy_(Omat_inv)
             W_t1.copy_(temp_O.mm(W_t1))
             return
-        except:
+        except Exception:
             # must reorth with Gram-Schmidt
             cholesky_ok = False
         if not cholesky_ok:
@@ -270,7 +272,6 @@ class OnlineNaturalGradient:
 
     def _compute_et(self, d_t, beta_t):
         """return e_t, sqrt_e_t and inv_sqrt_e_t given d_t and beta_t"""
-        D = d_t.shape[0]
         e_t = 1.0/(beta_t/d_t + 1.0)
         sqrt_e_t = e_t.pow(0.5)
         inv_sqrt_e_t = sqrt_e_t.pow(-1.0)
@@ -284,7 +285,6 @@ class OnlineNaturalGradient:
     def compute_zt(self, N, inv_sqrt_e_t, K_t, L_t):
         """return new value of Z_t"""
         eta, d_t, rho = self._compute_eta(N), self.d_t, self.rho
-        R = d_t.shape[0]
         d_t_rho_t = d_t + rho
         etaN, eta1 = (eta/N, 1.0-eta)
         etaN_sq, eta1_sq, etaN_eta1 = etaN*etaN, eta1*eta1, etaN*eta1
@@ -300,10 +300,10 @@ class OnlineNaturalGradient:
         inv_sqrt_e_t_cpu, d_t_rho_t_cpu = inv_sqrt_e_t.cpu(), d_t_rho_t.cpu()
         # there are four factors in the original code. I split them here so that it is
         # easier to see what's going on.
-        factor1 = ((inv_sqrt_e_t_cpu*etaN_sq)[:, None] * K_t_factor)*inv_sqrt_e_t_cpu[None,:]
-        factor2 = ((inv_sqrt_e_t_cpu*etaN_eta1)[:, None] * L_t_factor)*(inv_sqrt_e_t_cpu*d_t_rho_t_cpu)[None,:]
-        factor3 = ((inv_sqrt_e_t_cpu*d_t_rho_t_cpu*etaN_eta1)[:, None] * L_t_factor)*(inv_sqrt_e_t_cpu)[None,:]
-        # TODO: factor 2 and factor 3 can be simplied in one expression;        
+        factor1 = ((inv_sqrt_e_t_cpu*etaN_sq)[:, None] * K_t_factor)*inv_sqrt_e_t_cpu[None, :]
+        factor2 = ((inv_sqrt_e_t_cpu*etaN_eta1)[:, None] * L_t_factor)*(inv_sqrt_e_t_cpu*d_t_rho_t_cpu)[None, :]
+        factor3 = ((inv_sqrt_e_t_cpu*d_t_rho_t_cpu*etaN_eta1)[:, None] * L_t_factor)*(inv_sqrt_e_t_cpu)[None, :]
+        # TODO: factor 2 and factor 3 can be simplied in one expression
         # TODO: factor4 can be simplified, but need to check if it is benificial computationally
         factor4 = (eta1_sq*d_t_rho_t_cpu.pow(2.0)).diag()
         Z_t = factor1 + factor2 + factor3 + factor4
@@ -314,7 +314,7 @@ class OnlineNaturalGradient:
     @torch.no_grad()
     def precondition_directions(self, X):
         """Runs one step of preconditioning on X
-        
+
         Args:
             X: a two-dimensional matrix, usually input to the layer or grad_out
 
@@ -341,7 +341,7 @@ class OnlineNaturalGradient:
 
     def validate(self):
         """Method to check if the state values are sane"""
-        assert self.num_samples_history >0. and self.num_samples_history<=1e+06
+        assert self.num_samples_history > 0. and self.num_samples_history <= 1e+06
         assert self.num_minibatches_history == 0 or self.num_minibatches_history > 1.0
         assert self.num_minibatches_history < 1e+06
         assert self.alpha >= 0.
@@ -357,6 +357,7 @@ class OnlineNaturalGradient:
         else:
             # TODO: check if num_samples_history > 0.0
             return min(0.9, 1.0 - exp(-N/self.num_samples_history))
+
 
 def _is_unit(symmetric_matrix):
     """Check if a matrix is a Unit matrix
