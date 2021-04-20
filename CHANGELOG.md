@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## [0.2.30.0] - 2021-04-20
+
+- Merged NGD implementation in pytorch
+    - recipe available for minilibrispeech
+
 ## [0.2.28.2] - 2021-04-19
 
 - pytorch 1.8.1 and CUDA 11.1 compatibility tested
