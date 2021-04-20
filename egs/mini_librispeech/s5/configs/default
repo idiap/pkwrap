@@ -1,6 +1,6 @@
 [cmd]
-cpu_cmd = queue.pl -l q1d -V 
-cuda_cmd = queue.pl -l q_gpu -V
+cpu_cmd = queue.pl -l q1d -V  -P saral
+cuda_cmd = queue.pl -l q_short_gpu -V -P saral
 
 [exp]
 dirname = tdnnf
