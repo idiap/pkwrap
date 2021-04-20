@@ -4,6 +4,8 @@ This is an implementation of Natural Gradient Descent based on what is available
 It is reimplemented in pytorch to avoid using Kaldi's GPU libraries when using other toolkits
 that require compute-exclusive mode. Most of the implementation is based on Kaldi, while some
 vectorization is applied to avoid big for loops.
+
+A sample recipe for minilibrispeech is in /egs/mini_librispeech/s5.
 """
 
 # Copyright (c) 2020 Idiap Research Institute, http://www.idiap.ch/
