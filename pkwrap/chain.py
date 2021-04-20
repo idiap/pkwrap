@@ -1,7 +1,6 @@
 # Copyright (c) 2020 Idiap Research Institute, http://www.idiap.ch/
 #  Written by Srikanth Madikeri <srikanth.madikeri@idiap.ch>
 
-import sys
 import os
 import random
 from collections import OrderedDict, Counter
@@ -16,6 +15,7 @@ from _pkwrap import kaldi
 from . import chain
 from . import matrix
 from . import script_utils
+
 
 class KaldiChainObjfFunction(torch.autograd.Function):
     """LF-MMI objective function for pytorch
@@ -34,13 +34,13 @@ class KaldiChainObjfFunction(torch.autograd.Function):
     @staticmethod
     def forward(ctx, opts, den_graph, supervision, nnet_output_tensor,
                 xent_out_tensor):
-        """This function computes the loss for a single minibatch. 
+        """This function computes the loss for a single minibatch.
 
         This function calls Kaldi's ComputeChainObjfAndDeriv through our
         pybind11 wrapper. It takes the network outputs, rearranges them
         in the way Kaldi expects, gets back the derivates of the outputs.
         We pre-allocate the space for derivatives before passing to Kaldi.
-        No extra space is used by Kaldi as we pass only the poitners.
+        No extra space is used by Kaldi as we pass only the pointers.
 
         Args:
             opts: training options for the loss function
@@ -118,14 +118,14 @@ class OnlineNaturalGradient(torch.autograd.Function):
     @staticmethod
     def forward(ctx, input, weight, bias, in_state, out_state):
         """Forward pass for NG-SGD layer
-        
+
         Args:
             input: the input to the layer (a Tensor)
             weight: weight matrix of the layer (a Tensor)
             bias: the bias parameters of the layer (a Tensor)
             in_state: state of the input (a kaldi.nnet3.OnlineNaturalGradient object)
             out_state: state of the output (a kaldi.nnet3.OnlineNaturalGradient object)
-        
+
         Returns:
             Linear transformation of the input with weight and bias.
             The other inputs are saved in the context to be used during the call
@@ -158,8 +158,8 @@ class OnlineNaturalGradient(torch.autograd.Function):
         else:
             mb_T, D = input.shape
         input_temp = torch.zeros(mb_T, D+1, device=input.device, requires_grad=False).contiguous()
-        input_temp[:,-1] = 1.0
-        input_temp[:,:-1].copy_(input.reshape(mb_T, D))
+        input_temp[:, -1] = 1.0
+        input_temp[:, :-1].copy_(input.reshape(mb_T, D))
         grad_weight = grad_bias = None
         if grad_output.dim() == 3:
             grad_input = grad_output.matmul(weight)
@@ -169,12 +169,12 @@ class OnlineNaturalGradient(torch.autograd.Function):
         in_scale = kaldi.nnet3.precondition_directions(in_state, input_temp)
         out_dim = grad_output.shape[-1]
         grad_output_temp = grad_output.view(-1, out_dim)
-        out_scale = kaldi.nnet3.precondition_directions(out_state, grad_output_temp) # hope grad_output is continguous!
+        out_scale = kaldi.nnet3.precondition_directions(out_state, grad_output_temp)
         scale = in_scale*out_scale
         grad_output.data.mul_(scale)
         # TODO: check if we should use data member instead?
-        grad_weight = grad_output_temp.t().mm(input_temp[:,:-1])
-        grad_bias = grad_output_temp.t().mm(input_temp[:,-1].reshape(-1,1))
+        grad_weight = grad_output_temp.t().mm(input_temp[:, :-1])
+        grad_bias = grad_output_temp.t().mm(input_temp[:, -1].reshape(-1, 1))
         grad_weight.data.mul_(scale)
         grad_bias.data.mul_(scale)
         return grad_input, grad_weight, grad_bias.t(), None, None
@@ -227,7 +227,8 @@ class ChainExample(torch.utils.data.Dataset):
             return (key, value, lang_id)
         else:
             return (key, value, lang_id)
-        
+
+
 def load_egs(egs_file):
     """Loads the contents of the egs file.
 
@@ -236,11 +237,12 @@ def load_egs(egs_file):
 
     Args:
         egs_file: scp or ark file, should be prefix accordingly just like Kaldi
-    
+
     Returns:
         A list of NnetChainExample
     """
     return kaldi.chain.ReadChainEgsFile(egs_file, 0)
+
 
 def prepare_minibatch(egs_file, minibatch_size):
     """Prepare an array of minibatches from an egs file
@@ -251,9 +253,9 @@ def prepare_minibatch(egs_file, minibatch_size):
     Args:
         egs_file: scp or ark file (a string), should be prefix accordingly just like Kaldi
         minibatch_size: a string of minibatch sizes separated by commas. E.g "64" or "128,64"
-    
+
     Returns:
-        A list of NnetChainExample. Each item contains merged examples with number of 
+        A list of NnetChainExample. Each item contains merged examples with number of
         sequences as given in the minibatch_size
     """
     egs = load_egs(egs_file)
@@ -261,15 +263,16 @@ def prepare_minibatch(egs_file, minibatch_size):
     merged_egs = kaldi.chain.MergeChainEgs(egs, str(minibatch_size))
     return merged_egs
 
-def train_lfmmi_one_iter(model, egs_file, den_fst_path, training_opts, feat_dim, 
-                         minibatch_size="64", use_gpu=True, lr=0.0001, 
-                         weight_decay=0.25, frame_shift=0, 
+
+def train_lfmmi_one_iter(model, egs_file, den_fst_path, training_opts, feat_dim,
+                         minibatch_size="64", use_gpu=True, lr=0.0001,
+                         weight_decay=0.25, frame_shift=0,
                          left_context=0,
                          right_context=0,
                          print_interval=10,
                          frame_subsampling_factor=3,
-                         optimizer = None,
-                         e2e = False,
+                         optimizer=None,
+                         e2e=False,
                          use_ivector=False,
     ):
     """Run one iteration of LF-MMI training
@@ -307,16 +310,16 @@ def train_lfmmi_one_iter(model, egs_file, den_fst_path, training_opts, feat_dim,
     for mb_id, merged_egs in enumerate(prepare_minibatch(egs_file, minibatch_size)):
         chunk_size = kaldi.chain.GetFramesPerSequence(merged_egs)*frame_subsampling_factor
         features = kaldi.chain.GetFeaturesFromEgs(merged_egs)
-        features = features[:,frame_shift:frame_shift+chunk_size+left_context+right_context,:]
+        features = features[:, frame_shift:frame_shift+chunk_size+left_context+right_context, :]
         if use_ivector:
-            ivec = kaldi.chain.GetIvectorsFromEgs(merged_egs).repeat(1,features.shape[1],1)
-            features = torch.cat((features,ivec),-1)
+            ivec = kaldi.chain.GetIvectorsFromEgs(merged_egs).repeat(1, features.shape[1], 1)
+            features = torch.cat((features, ivec), -1)
         features = features.cuda()
         output, xent_output = model(features)
         sup = kaldi.chain.GetSupervisionFromEgs(merged_egs)
         deriv = criterion(training_opts, den_graph, sup, output, xent_output)
         acc_sum.add_(deriv[0])
-        if mb_id>0 and mb_id%print_interval==0:
+        if mb_id > 0 and mb_id % print_interval == 0:
             logging.info("Overall objf={}".format(acc_sum/print_interval))
             acc_sum.zero_()
         optimizer.zero_grad()
@@ -506,7 +509,7 @@ class ChainModel(nn.Module):
             model,
             chain_opts.egs, 
             den_fst_path, 
-            training_opts, 
+            training_opts,
             chain_opts.feat_dim, 
             minibatch_size=chain_opts.minibatch_size, 
             left_context=context,
@@ -616,7 +619,7 @@ class ChainModel(nn.Module):
         with torch.no_grad():
           model = self.initialize_model()
           chunk_sizes = [(150,50), (50, 17), (100, 34), (10, 4), (20, 7)]
-          frame_shift = 0
+          feat_dim = self.chain_opts.feat_dim
           left_context = 0
           logging.info("Searching for context...")
           while True:
