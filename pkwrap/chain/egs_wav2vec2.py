@@ -3,15 +3,14 @@
 
 import logging
 import os
-import torch
-import numpy as np
-from _pkwrap import kaldi
 from collections import defaultdict
-# import librosa
-import soundfile
 import subprocess
 import io
 import random
+import torch
+from _pkwrap import kaldi
+import soundfile
+
 
 class EgsInfo:
 
@@ -32,17 +31,24 @@ class EgsInfo:
             kaldi.chain.AddWeightToSupervisionFst(normalize_fst, self.supervision)
 
 def prepare_e2e_minibatch(batch):
+    """returns a tuple of minibatch tensor and merged supervision
+
+    Args:
+        batch: a list of egs objects
+
+    Returns:
+        feats: a Tensor of size minibatch_size x time x dimension 
+        merged_sup: Supervision object to be used as target for LF-MMI
+    """
     # load the audio
     if not batch:
         return None, None
-    batch_size = len(batch)
     feat_list = []
     devnull = open(os.devnull, 'w')
     for egs in batch:
         try:
             p = subprocess.Popen(' '.join(egs.wav), stdout=subprocess.PIPE, shell=True, stderr=devnull)
             samples, _ = soundfile.read(io.BytesIO(p.communicate()[0]))
-            # samples, _ = librosa.load(io.BytesIO(p.communicate()[0]), sr=16000)
             feat_list.append(samples)
         except Exception as e:
             raise IOError("Error processing {}".format(egs.name))
@@ -173,4 +179,3 @@ class Wav2vec2EgsDataset(torch.utils.data.Dataset):
                 done += 1
             logging.info("In get_egs_holder: total={}, done={}, skipped={}".format(total, done, skipped))
         return egs_holder
-
