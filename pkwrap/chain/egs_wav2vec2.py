@@ -9,6 +9,7 @@ import io
 import random
 import torch
 from _pkwrap import kaldi
+# NOTE: soundfile was exceptionally faster than librosa
 import soundfile
 
 
