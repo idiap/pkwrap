@@ -7,6 +7,5 @@
 #include "fstext/fstext-lib.h"
 
 void ReadFstKaldi(std::string rxfilename, fst::StdVectorFst &fst);
-/* void ReadFstKaldiFromScpLine(std::string rxfilename, fst::StdVectorFst &fst); */
 
 #endif
