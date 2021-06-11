@@ -60,7 +60,8 @@ def submit_diagnostic_jobs(dirname, model_file, iter_no, egs_dir, job_cmd, ivect
     return job_pool
 
 def run_job(num_jobs, job_id, dirname, iter_no, model_file, lr, frame_shift, egs_dir,
-    num_archives, num_archives_processed, minibatch_size, job_cmd, ivector_dir=''):
+    num_archives, num_archives_processed, minibatch_size, job_cmd,
+    xent_regularize=0.025,):
     """
         sub a single job and let ThreadPoolExecutor monitor its progress
     """
@@ -80,6 +81,7 @@ def run_job(num_jobs, job_id, dirname, iter_no, model_file, lr, frame_shift, egs
                 "--minibatch-size", minibatch_size,
                 "--new-model", os.path.join(dirname, "{}.{}.pt".format(iter_no, job_id)),
                 *ivector_opts,
+                "--xent-regularize", str(xent_regularize),
                 os.path.join(dirname, "{}.pt".format(iter_no))])
     return process_out.returncode
 
@@ -127,7 +129,10 @@ def train():
     lang_chain = exp_cfg["lang_chain"] if "lang_chain" in exp_cfg else "lang_chain"
 
     l2_regularize = args.l2_regularize
-    
+    xent_regularize = args.xent_regularize
+    if "xent_regularize" in exp_cfg:
+        xent_regularize = exp_cfg["xent_regularize"]
+
     model_opts = pkwrap.trainer.ModelOpts().load_from_config(exp_cfg)
     frame_subsampling_factor = model_opts.frame_subsampling_factor
     trainer_opts = pkwrap.trainer.TrainerOpts().load_from_config(exp_cfg)
@@ -195,7 +200,6 @@ def train():
             os.path.join(tree_dir, "tree"),
             dirname
         )
-    learning_rate_factor = 0.5/args.xent_regularize
 
 #   create den.fst
     if stage <= 3:
@@ -348,6 +352,7 @@ def train():
                                         egs_dir, num_archives, num_archives_processed,
                                         exp_cfg["minibatch_size"], cuda_cmd,
                                         ivector_dir=trainer_opts.online_ivector_dir)
+                                        xent_regularize=xent_regularize)
                         num_archives_processed += 1
                         job_pool.append(p)
                     for p in as_completed(job_pool):

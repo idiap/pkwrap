@@ -12,9 +12,11 @@
 #include "nnet3/nnet-chain-example.h"
 #include "chain/chain-denominator.h"
 #include "chain/chain-training.h"
+#include "chain/chain-supervision.h"
 #include "base/kaldi-common.h"
 #include "util/common-utils.h"
 #include "hmm/transition-model.h"
+#include "nnet3/nnet-chain-example.h"
 #include "nnet3/nnet-example-utils.h"
 
 kaldi::chain::ChainTrainingOptions CreateChainTrainingOptions(float l2, float oor, float lhc, float xentr);
@@ -33,6 +35,14 @@ bool ComputeChainObjfAndDeriv(const kaldi::chain::ChainTrainingOptions &opts,
                               torch::Tensor &weight,
                               torch::Tensor &nnet_output_deriv,
                               torch::Tensor &xent_output_deriv);
+bool ComputeChainObjfAndDerivNoXent(const kaldi::chain::ChainTrainingOptions &opts,
+                              const kaldi::chain::DenominatorGraph &den_graph,
+                              const kaldi::chain::Supervision &supervision,
+                              torch::Tensor &nnet_output,
+                              torch::Tensor &objf,
+                              torch::Tensor &l2_term,
+                              torch::Tensor &weight,
+                              torch::Tensor &nnet_output_deriv);
 std::vector<kaldi::nnet3::NnetChainExample> ReadChainEgsFile(std::string egs_file_path, int32 frame_shift);
 void ShiftEgsVector(std::vector<kaldi::nnet3::NnetChainExample> &egs, int32 frame_shift);
 void ShuffleEgs(std::vector<kaldi::nnet3::NnetChainExample> &egs);
@@ -158,4 +168,8 @@ torch::Tensor GetFeaturesFromCompressedEgs(kaldi::nnet3::NnetChainExample &egs);
 torch::Tensor GetIvectorsFromEgs(const kaldi::nnet3::NnetChainExample &egs);
 int32 GetFramesPerSequence(const kaldi::nnet3::NnetChainExample &egs);
 kaldi::chain::Supervision GetSupervisionFromEgs(kaldi::nnet3::NnetChainExample &egs);
+bool MergeSupervisionE2e(const std::vector<kaldi::chain::Supervision> &input,
+                          kaldi::chain::Supervision &output_supervision);
+void SaveSupervision(std::string filename, kaldi::chain::Supervision sup, bool binary);
+int32 FindMinimumLengthPathFromFst(const fst::StdVectorFst &fst);
 #endif
