@@ -12,15 +12,3 @@ void ReadFstKaldi(std::string rxfilename, fst::StdVectorFst &fst) {
     }
     return;
 }
-
-/* void ReadFstKaldiFromScpLine(std::string rxfilename, fst::StdVectorFst &fst) { */
-/*     try { */
-/*         bool binary_in; */
-/*         kaldi::Input ki(rxfilename, &binary_in); */
-/*       fst.Read(ki.Stream(), binary_in); */
-/*     } catch (...) { */
-/*         std::cerr << "Error opening " << rxfilename << std::endl; */
-/*         return; */
-/*     } */
-/*     return; */
-/* } */
