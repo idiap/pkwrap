@@ -115,6 +115,52 @@ bool ComputeChainObjfAndDeriv(const kaldi::chain::ChainTrainingOptions &opts,
     return true;
 }
 
+bool ComputeChainObjfAndDerivNoXent(const kaldi::chain::ChainTrainingOptions &opts,
+                              const kaldi::chain::DenominatorGraph &den_graph,
+                              const kaldi::chain::Supervision &supervision,
+                              torch::Tensor &nnet_output,
+                              torch::Tensor &objf,
+                              torch::Tensor &l2_term,
+                              torch::Tensor &weight,
+                              torch::Tensor &nnet_output_deriv
+                              ) {
+    if(den_graph.NumPdfs() != nnet_output.size(1)) {
+        std::cout << "ERROR: In pkwrap's ComputeChainObjfAndDeriv, den_graph is not compatible with the output matrix" << std::endl;
+        std::cout << "den_graph has " << den_graph.NumPdfs() << " pdfs and output has " << nnet_output.size(1)  << " columns" << std::endl;
+        return false;
+    }
+    if (objf.size(0) != 1) {
+        std::cout << "ERROR: In pkwrap's ComputeChainObjfAndDeriv, objf should be a scalar" << std::endl;
+        return false;
+    }
+    if (weight.size(0) != 1) {
+        std::cout << "ERROR: In pkwrap's ComputeChainObjfAndDeriv, weight should be a scalar" << std::endl;
+        return false;
+    }
+    if (l2_term.size(0) != 1) {
+        std::cout << "ERROR: In pkwrap's ComputeChainObjfAndDeriv, l2_term should be a scalar" << std::endl;
+        return false;
+    }
+
+    kaldi::BaseFloat objf_;
+    kaldi::BaseFloat l2_term_;
+    kaldi::BaseFloat weight_;
+    if(kaldi::CuDevice::Instantiate().Enabled()) {
+        auto nnet_output_cumat = TensorToKaldiCuSubMatrix(nnet_output);
+        kaldi::CuMatrix<BaseFloat> xent_output_deriv_cumat;
+        auto nnet_output_deriv_cumat = TensorToKaldiCuSubMatrix(nnet_output_deriv);
+        kaldi::chain::ComputeChainObjfAndDeriv(opts, den_graph, supervision, 
+                nnet_output_cumat, &objf_, &l2_term_, &weight_, 
+                &nnet_output_deriv_cumat,
+                NULL);
+    }
+
+    objf[0]= objf_;
+    l2_term[0] = l2_term_;
+    weight[0] = weight_;
+    return true;
+}
+
 std::vector<kaldi::nnet3::NnetChainExample> ReadChainEgsFile(std::string egs_file_path, int32 frame_shift) {
     kaldi::nnet3::SequentialNnetChainExampleReader example_reader(egs_file_path);
     std::vector<kaldi::nnet3::NnetChainExample> out;
@@ -444,4 +490,88 @@ int32 GetFramesPerSequence(const kaldi::nnet3::NnetChainExample &egs) {
 
 kaldi::chain::Supervision GetSupervisionFromEgs(kaldi::nnet3::NnetChainExample &egs) {
     return egs.outputs[0].supervision;
+}
+
+
+// The following function is adapted from Kaldi's chain/chain-supervision.cc.
+// Copying it here because in Kaldi, it is a static function.
+// Copyright      2015   Johns Hopkins University (author: Daniel Povey)
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//  http://www.apache.org/licenses/LICENSE-2.0
+bool MergeSupervisionE2e(const std::vector<kaldi::chain::Supervision> &input,
+                          kaldi::chain::Supervision &output_supervision) {
+  output_supervision.e2e_fsts.clear();
+  output_supervision.e2e_fsts.reserve(input.size());
+  output_supervision.num_sequences = 0;
+  int32 num_seqs = input.size();
+  if(num_seqs == 0) {
+      return true;
+  }
+  int32 frames_per_sequence = input[0].frames_per_sequence;
+  output_supervision.frames_per_sequence = frames_per_sequence;
+  output_supervision.weight = 1.0;
+  output_supervision.label_dim = input[0].label_dim;
+  // TODO: raise Exception if input is empty
+  for (int32 i = 0; i < num_seqs; i++) {
+    output_supervision.num_sequences++;
+    // TODO: check if input[i]->e2e_fsts.size() is 1
+    // TODO: check if input[i].frames_per_sequence is the same as others
+    if(input[i].e2e_fsts.size()>1) {
+        std::cerr << "pkwrap:: in MergeSupervisionE2e, input fst is already merged" << std::endl;
+        return false;
+    }
+    if(frames_per_sequence != input[i].frames_per_sequence) {
+        std::cerr << "pkwrap:: in MergeSupervisionE2e, input fst is already merged" << std::endl;
+        return false;
+    }
+    output_supervision.e2e_fsts.push_back(input[i].e2e_fsts[0]);
+  }
+  output_supervision.alignment_pdfs.clear();
+  return true;
+}
+
+void SaveSupervision(std::string filename, kaldi::chain::Supervision sup, bool binary) {
+    kaldi::WriteKaldiObject(sup, filename, binary);
+}
+
+
+// The following function is adapted from Kaldi's nnet3-chain-e2e-get-egs.cc.
+// Copying it here because in Kaldi, it is a static function.
+// Copyright      2015   Johns Hopkins University (author: Daniel Povey)
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//  http://www.apache.org/licenses/LICENSE-2.0
+int32 FindMinimumLengthPathFromFst(
+    const fst::StdVectorFst &fst) {
+  using fst::VectorFst;
+  using fst::StdArc;
+  using fst::StdVectorFst;
+  StdVectorFst distance_fst(fst);
+  // Modify distance_fst such that all the emitting
+  // arcs have cost 1 and others (and final-probs) a cost of zero
+  int32 num_states = distance_fst.NumStates();
+  for (int32 state = 0; state < num_states; state++) {
+    for (fst::MutableArcIterator<StdVectorFst> aiter(&distance_fst, state);
+         !aiter.Done(); aiter.Next()) {
+      const StdArc &arc = aiter.Value();
+      StdArc arc2(arc);
+      if (arc.olabel == 0)
+        arc2.weight = fst::TropicalWeight::One();
+      else
+        arc2.weight = fst::TropicalWeight(1.0);
+      aiter.SetValue(arc2);
+    }
+    if (distance_fst.Final(state) != fst::TropicalWeight::Zero())
+      distance_fst.Final(state) = fst::TropicalWeight::One();
+  }
+  VectorFst<StdArc> shortest_path;
+  fst::ShortestPath(distance_fst, &shortest_path);
+  return shortest_path.NumStates() - 1;
 }

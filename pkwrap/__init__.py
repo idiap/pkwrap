@@ -1,6 +1,7 @@
 # Copyright (c) 2020 Idiap Research Institute, http://www.idiap.ch/
 #  Written by Srikanth Madikeri <srikanth.madikeri@idiap.ch>
 
+import torch
 from _pkwrap import *
 from . import nn
 from . import script_utils

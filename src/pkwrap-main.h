@@ -7,6 +7,8 @@
 #include "matrix.h"
 #include "chain.h"
 #include "nnet3.h"
+#include "fst.h"
+#include "hmm.h"
 // This is required to make sure kaldi CuMatrix and the likes are actually 
 // in the GPU. We don't handle the behavior of the function being called twice though.
 inline void InstantiateKaldiCuda();
@@ -42,6 +44,12 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
         .def("Write", &BaseFloatMatrixWriter::Write)
         .def("Close", &BaseFloatMatrixWriter::Close);
 
+    auto hmm = kaldi_module.def_submodule("hmm");
+    py::class_<kaldi::TransitionModel>(hmm, "TransitionModel")
+        .def(py::init<> ())
+        .def("Read", &kaldi::TransitionModel::Read)
+        .def("Write", &kaldi::TransitionModel::Write);
+    hmm.def("ReadTransitionModel", &ReadTransitionModel);
     auto nnet3 = kaldi_module.def_submodule("nnet3");
     py::class_<kaldi::nnet3::SequentialNnetChainExampleReader>(nnet3, "SequentialNnetChainExampleReader")
         .def(py::init<std::string>())
@@ -68,21 +76,27 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
 
     auto chain = kaldi_module.def_submodule("chain");
     // classes from Kaldi
-    py::class_<kaldi::chain::DenominatorGraph>(chain, "DenominatorGraph");
+    py::class_<kaldi::chain::DenominatorGraph>(chain, "DenominatorGraph")
+        .def("NumStates", &kaldi::chain::DenominatorGraph::NumStates);
     py::class_<kaldi::chain::ChainTrainingOptions>(chain, "ChainTrainingOptions")
         .def_readwrite("xent_regularize", &kaldi::chain::ChainTrainingOptions::xent_regularize)
         .def_readwrite("leaky_hmm_coefficient", &kaldi::chain::ChainTrainingOptions::leaky_hmm_coefficient)
         .def_readwrite("out_of_range_regularize", &kaldi::chain::ChainTrainingOptions::out_of_range_regularize)
         .def_readwrite("l2_regularize", &kaldi::chain::ChainTrainingOptions::l2_regularize);
-        
+
     py::class_<kaldi::nnet3::NnetChainExample>(chain, "NnetChainExample");
-    py::class_<kaldi::chain::Supervision>(chain, "Supervision");
+    py::class_<kaldi::chain::Supervision>(chain, "Supervision")
+        .def(py::init<>())
+        .def("Check", &kaldi::chain::Supervision::Check);
+    chain.def("TrainingGraphToSupervisionE2e", &kaldi::chain::TrainingGraphToSupervisionE2e);
+    chain.def("AddWeightToSupervisionFst", &kaldi::chain::AddWeightToSupervisionFst);
 
     // custom functions
     chain.def("CreateChainTrainingOptions", &CreateChainTrainingOptions);
     chain.def("LoadDenominatorGraph", &LoadDenominatorGraph);
     chain.def("TestLoadDenominatorGraph", &TestLoadDenominatorGraph);
     chain.def("ComputeChainObjfAndDeriv", &ComputeChainObjfAndDeriv);
+    chain.def("ComputeChainObjfAndDerivNoXent", &ComputeChainObjfAndDerivNoXent);
     chain.def("ReadOneSupervisionFile", &ReadOneSupervisionFile);
     chain.def("ReadSupervisionFromFile", &ReadSupervisionFromFile);
     chain.def("ReadChainEgsFile", &ReadChainEgsFile);
@@ -95,5 +109,15 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     chain.def("GetFramesPerSequence", &GetFramesPerSequence);
     chain.def("GetSupervisionFromEgs", &GetSupervisionFromEgs);
     chain.def("PrintSupervisionInfoE2E", &PrintSupervisionInfoE2E);
+    chain.def("MergeSupervisionE2e", &MergeSupervisionE2e);
+    chain.def("SaveSupervision", &SaveSupervision);
+    chain.def("FindMinimumLengthPathFromFst", &FindMinimumLengthPathFromFst);
+
+    auto fst = kaldi_module.def_submodule("fst");
+    py::class_<fst::StdVectorFst >(fst, "StdVectorFst")
+        .def(py::init<>());
+    fst.def("ReadFstKaldi", &ReadFstKaldi);
+    /* fst.def("ReadFstKaldiFromScpLine", &ReadFstKaldiFromScpLine); */
 }
+
 #endif
