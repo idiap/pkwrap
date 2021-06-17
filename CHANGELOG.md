@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## [0.2.31.3] - 2021-06-17
+
+- Refactored pkwrap/ library. More refactoring to come!
+- Egs creation for e2e-LFMMI 
+    - This now possible without dumping the supervision objects.
+    - This is useful when trained with large amounts of data.
+
 ## [0.2.30.0] - 2021-04-20
 
 - Merged NGD implementation in pytorch
