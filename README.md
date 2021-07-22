@@ -48,9 +48,10 @@ Pkwrap has been tested with the following pytorch and CUDA libraries
 | 1.8     | 10.2, 11.1 |
 
 1. Activate your pytorch environment.
-2. Compile Kaldi with `CXXFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"`.
-3. Set ``KALDI_ROOT`` and optionally ``MKL_ROOT`` in the environment. Note: in the future this will be made easier with autoconf.
-4. Run ``make``
+2. Install requirements with ``pip install -r requirements.txt``
+3. Compile Kaldi with `CXXFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0"`.
+4. Set ``KALDI_ROOT`` and optionally ``MKL_ROOT`` in the environment. Note: in the future this will be made easier with autoconf.
+5. Run ``make``
 
 ### Known Issues / Common Pitfalls
 
