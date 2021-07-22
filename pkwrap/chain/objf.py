@@ -8,7 +8,6 @@ from collections import OrderedDict, Counter
 import logging
 import argparse
 from dataclasses import dataclass
-from librosa.core.constantq import __num_two_factors
 import torch
 import torch.nn as nn
 from torch.nn.utils import clip_grad_value_
@@ -18,7 +17,6 @@ from .. import chain
 from .. import matrix
 from .. import script_utils
 from collections import defaultdict, namedtuple
-import librosa
 import subprocess
 import io
 from math import ceil
