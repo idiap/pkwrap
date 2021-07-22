@@ -31,6 +31,8 @@ SRC_FILES = [
     'src/matrix.cc',
     'src/chain.cc',
     'src/nnet3.cc',
+    'src/fst.cc',
+    'src/hmm.cc'
 ]
 EXTRA_COMPILE_ARGS = {
     'cxx': [
