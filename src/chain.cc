@@ -217,7 +217,7 @@ void ChainExampleMerger::AcceptExample(kaldi::nnet3::NnetChainExample *eg) {
   // element of the vector.
   std::vector<kaldi::nnet3::NnetChainExample*> &vec = eg_to_egs_[eg];
   vec.push_back(eg);
-  int32 eg_size = GetNnetChainExampleSize(*eg),
+  int32 eg_size = GetNnetChainExampleSizeInternal(*eg),
       num_available = vec.size();
   bool input_ended = false;
   int32 minibatch_size = config_.MinibatchSize(eg_size, num_available,
@@ -239,7 +239,7 @@ void ChainExampleMerger::AcceptExample(kaldi::nnet3::NnetChainExample *eg) {
 
 void ChainExampleMerger::WriteMinibatch(
     std::vector<kaldi::nnet3::NnetChainExample> *egs) {
-  int32 eg_size = GetNnetChainExampleSize((*egs)[0]);
+  int32 eg_size = GetNnetChainExampleSizeInternal((*egs)[0]);
   kaldi::nnet3::NnetChainExampleStructureHasher eg_hasher;
   size_t structure_hash = eg_hasher((*egs)[0]);
   int32 minibatch_size = egs->size();
@@ -266,7 +266,7 @@ void ChainExampleMerger::Finish() {
   for (size_t i = 0; i < all_egs.size(); i++) {
     int32 minibatch_size;
     std::vector<kaldi::nnet3::NnetChainExample*> &vec = all_egs[i];
-    int32 eg_size = GetNnetChainExampleSize(*(vec[0]));
+    int32 eg_size = GetNnetChainExampleSizeInternal(*(vec[0]));
     bool input_ended = true;
     while (!vec.empty() &&
            (minibatch_size = config_.MinibatchSize(eg_size, vec.size(),
@@ -283,7 +283,7 @@ void ChainExampleMerger::Finish() {
       WriteMinibatch(&egs_to_merge);
     }
     if (!vec.empty()) {
-      int32 eg_size = GetNnetChainExampleSize(*(vec[0]));
+      int32 eg_size = GetNnetChainExampleSizeInternal(*(vec[0]));
       kaldi::nnet3::NnetChainExampleStructureHasher eg_hasher;
       size_t structure_hash = eg_hasher(*(vec[0]));
       int32 num_discarded = vec.size();
@@ -296,7 +296,7 @@ void ChainExampleMerger::Finish() {
   stats_.PrintStats();
 }
 
-int32 GetNnetChainExampleSize(const kaldi::nnet3::NnetChainExample &a) {
+int32 GetNnetChainExampleSizeInternal(const kaldi::nnet3::NnetChainExample &a) {
   int32 ans = 0;
   for (size_t i = 0; i < a.inputs.size(); i++) {
     int32 s = a.inputs[i].indexes.size();
