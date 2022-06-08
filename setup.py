@@ -13,8 +13,10 @@ from torch.utils import cpp_extension
 
 import torch
 PYTORCH_VERSION = torch.__version__
+SUPPORTED_PYTORCH_MAJOR_VER = 1
+SUPPORTED_PYTORCH_MINOR_VER = 11
 PYTORCH_MAJOR_VER, PYTORCH_MIN_VER = list(map(int, PYTORCH_VERSION.split('.')[:2]))
-if PYTORCH_MAJOR_VER != 1 or PYTORCH_MIN_VER > 8:
+if PYTORCH_MAJOR_VER != SUPPORTED_PYTORCH_MAJOR_VER or PYTORCH_MIN_VER > SUPPORTED_PYTORCH_MINOR_VER:
     sys.stderr.write("We support pytorch version until 1.8 only\n")
     quit(1)
 
